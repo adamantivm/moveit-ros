@@ -94,6 +94,7 @@ MainWindow::MainWindow(int argc, char **argv, QWidget *parent) :
 
   if ( scene_display_ )
   {
+    ROS_INFO("Inside scene_display_ if statement");
     configure();
     if (ui_.planning_group_combo->count() > 0)
     {
@@ -324,9 +325,17 @@ void MainWindow::loadNewRobot(const std::string &urdf_path, const std::string &s
 
 bool MainWindow::configure()
 {
+  bool bError = false;
+  if ( ! scene_display_->getPlanningSceneMonitor()) {
+    ROS_ERROR("Cannot get planning scene monitor");
+    bError = true;
+  }
   if ( ! scene_display_->getPlanningSceneMonitor() || ! scene_display_->getPlanningSceneMonitor()->getRobotModel() )
   {
     ROS_ERROR("Cannot load robot");
+    bError = true;
+  }
+  if( bError) {
     ui_.robot_interaction_button->setEnabled(false);
     ui_.load_scene_button->setEnabled(false);
     ui_.load_results_button->setEnabled(false);

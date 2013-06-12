@@ -37,6 +37,7 @@
 #include <moveit/move_group_interface/move_group.h>
 #include <moveit/py_bindings_tools/roscpp_initializer.h>
 #include <moveit/py_bindings_tools/py_conversions.h>
+#include <moveit/robot_state/robot_state.h>
 #include <eigen_conversions/eigen_msg.h>
 
 #include <boost/function.hpp>
@@ -353,8 +354,43 @@ public:
     return bp::make_tuple(convertTrajectoryToDict(trajectory), fraction);
   }
 
-};  
-  
+  bp::dict getLinkPosesCompressed()
+  {
+    // TODO: Make this more standardized, perhaps more similar to a TF message
+    /* Returns the pose of all links in global_link frame using a custom format:
+     * { 'global_link': [
+     *    ('<link_name>', tr.x, tr.y, tr.z, ro.x, ro.y, ro.z, ro.w),
+     *    ...
+     * ]}
+     */
+    bp::dict current_state_dict;
+    bp::list link_state_list;
+    robot_state::RobotStatePtr robot_state = getCurrentState();
+    std::vector<robot_state::LinkState*> linkStateVector = robot_state->getLinkStateVector();
+    for(int i=0; i < linkStateVector.size(); i++) {
+      Eigen::Affine3d link_pose = linkStateVector[i]->getGlobalLinkTransform();
+      bp::list link_state;
+      // link_name:
+      link_state.append(linkStateVector[i]->getName());
+      // translation coordinates:
+      link_state.append(link_pose.translation().x());
+      link_state.append(link_pose.translation().y());
+      link_state.append(link_pose.translation().z());
+      // rotation coordinates:
+      Eigen::Quaterniond link_rotation(link_pose.rotation());
+      link_state.append(link_rotation.x());
+      link_state.append(link_rotation.y());
+      link_state.append(link_rotation.z());
+      link_state.append(link_rotation.w());
+      // add to list of states
+      link_state_list.append(link_state);
+    }
+    // TODO: Convert RobotState to python dict
+    current_state_dict["global_link"] = link_state_list;
+    return current_state_dict;
+  }
+};
+
 void wrap_move_group_interface()
 {
   void (*init_fn)(const std::string&, bp::list&) = &moveit_py_bindings_tools::roscpp_init;
@@ -442,6 +478,7 @@ void wrap_move_group_interface()
 
   MoveGroupClass.def("get_robot_root_link", &MoveGroupWrapper::getRobotRootLinkCStr);
   MoveGroupClass.def("get_planning_frame", &MoveGroupWrapper::getPlanningFrameCStr);
+  MoveGroupClass.def("get_link_poses_compressed", &MoveGroupWrapper::getLinkPosesCompressed);
 }
 
 }

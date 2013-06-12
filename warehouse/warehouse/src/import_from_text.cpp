@@ -254,6 +254,8 @@ int main(int argc, char **argv)
     std::ifstream fin(vm["queries"].as<std::string>().c_str());
     if (fin.good() && !fin.eof())
       parseQueries(fin, &psm, &rs, &cs);
+    else
+      ROS_ERROR("Error opening queries file");
     fin.close();
   }
 
