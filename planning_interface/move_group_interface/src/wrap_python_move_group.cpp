@@ -356,6 +356,10 @@ public:
 
   bp::dict getLinkPosesCompressed()
   {
+    return getLinkPosesCompressedForState(getCurrentState());
+  }
+
+  bp::dict getLinkPosesCompressedForState(robot_state::RobotStatePtr robot_state) {
     // TODO: Make this more standardized, perhaps more similar to a TF message
     /* Returns the pose of all links in global_link frame using a custom format:
      * { 'global_link': [
@@ -365,7 +369,6 @@ public:
      */
     bp::dict current_state_dict;
     bp::list link_state_list;
-    robot_state::RobotStatePtr robot_state = getCurrentState();
     std::vector<robot_state::LinkState*> linkStateVector = robot_state->getLinkStateVector();
     for(int i=0; i < linkStateVector.size(); i++) {
       Eigen::Affine3d link_pose = linkStateVector[i]->getGlobalLinkTransform();
@@ -388,6 +391,31 @@ public:
     // TODO: Convert RobotState to python dict
     current_state_dict["global_link"] = link_state_list;
     return current_state_dict;
+  }
+
+  bp::dict updateRobotState(const bp::list py_joint_names, const bp::list py_joint_values, const bool updates_state = false) {
+    /**
+     * Given a list of joint names and values, performs forward kinematics
+     * to update the robot state and returns the new set of link_poses compressed
+     */
+
+    // Get ahold of a RobotState instance
+    robot_state::RobotStatePtr robot_state = getCurrentState();
+
+    // Convert from python lists to C++ vectors
+    std::vector<std::string> joint_names = moveit_py_bindings_tools::stringFromList(py_joint_names);
+    std::vector<double> joint_values = moveit_py_bindings_tools::doubleFromList(py_joint_values);
+
+    // Perform the update
+    robot_state->setStateValues(joint_names, joint_values);
+
+    if( updates_state) {
+    // Set the start state to this now, for future plans
+      setStartState(*robot_state);
+    }
+
+    // Use this same state to calculate the link pose values in global frame
+    return getLinkPosesCompressedForState(robot_state);
   }
 };
 
@@ -478,7 +506,9 @@ void wrap_move_group_interface()
 
   MoveGroupClass.def("get_robot_root_link", &MoveGroupWrapper::getRobotRootLinkCStr);
   MoveGroupClass.def("get_planning_frame", &MoveGroupWrapper::getPlanningFrameCStr);
+
   MoveGroupClass.def("get_link_poses_compressed", &MoveGroupWrapper::getLinkPosesCompressed);
+  MoveGroupClass.def("update_robot_state", &MoveGroupWrapper::updateRobotState);
 }
 
 }
