@@ -1,38 +1,44 @@
-/*
- * Copyright (c) 2012, Willow Garage, Inc.
- * All rights reserved.
+/*********************************************************************
+ * Software License Agreement (BSD License)
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
+ *  Copyright (c) 2012, Willow Garage, Inc.
+ *  All rights reserved.
  *
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *     * Redistributions in binary form must reproduce the above copyright
- *       notice, this list of conditions and the following disclaimer in the
- *       documentation and/or other materials provided with the distribution.
- *     * Neither the name of the Willow Garage, Inc. nor the names of its
- *       contributors may be used to endorse or promote products derived from
- *       this software without specific prior written permission.
+ *  Redistribution and use in source and binary forms, with or without
+ *  modification, are permitted provided that the following conditions
+ *  are met:
  *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- */
+ *   * Redistributions of source code must retain the above copyright
+ *     notice, this list of conditions and the following disclaimer.
+ *   * Redistributions in binary form must reproduce the above
+ *     copyright notice, this list of conditions and the following
+ *     disclaimer in the documentation and/or other materials provided
+ *     with the distribution.
+ *   * Neither the name of Willow Garage nor the names of its
+ *     contributors may be used to endorse or promote products derived
+ *     from this software without specific prior written permission.
+ *
+ *  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ *  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ *  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ *  FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+ *  COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+ *  INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+ *  BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ *  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ *  CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ *  LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+ *  ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ *  POSSIBILITY OF SUCH DAMAGE.
+ *********************************************************************/
 
-/* Author: Ioan Sucan */
+/* Author: Ioan Sucan, Adam Leeper */
 
 #include <moveit/robot_interaction/robot_interaction.h>
 #include <moveit/robot_interaction/interactive_marker_helpers.h>
-#include <moveit/robot_state/transforms.h>
+#include <moveit/transforms/transforms.h>
 #include <interactive_markers/interactive_marker_server.h>
+#include <interactive_markers/menu_handler.h>
 #include <eigen_conversions/eigen_msg.h>
 #include <tf_conversions/tf_eigen.h>
 #include <boost/lexical_cast.hpp>
@@ -82,7 +88,6 @@ void RobotInteraction::InteractionHandler::setup()
   std::replace(name_.begin(), name_.end(), '_', '-'); // we use _ as a special char in marker name
   ik_timeout_ = 0.0; // so that the default IK timeout is used in setFromIK()
   ik_attempts_ = 0; // so that the default IK attempts is used in setFromIK()
-  lock_redundancy_ = false;
   planning_frame_ = kstate_->getRobotModel()->getModelFrame();
 }
 
@@ -92,10 +97,22 @@ void RobotInteraction::InteractionHandler::setPoseOffset(const RobotInteraction:
   offset_map_[eef.eef_group] = m;
 }
 
+void RobotInteraction::InteractionHandler::setPoseOffset(const RobotInteraction::Joint& vj, const geometry_msgs::Pose& m)
+{
+  boost::mutex::scoped_lock slock(offset_map_lock_);
+  offset_map_[vj.joint_name] = m;
+}
+
 void RobotInteraction::InteractionHandler::clearPoseOffset(const RobotInteraction::EndEffector& eef)
 {
   boost::mutex::scoped_lock slock(offset_map_lock_);
   offset_map_.erase(eef.eef_group);
+}
+
+void RobotInteraction::InteractionHandler::clearPoseOffset(const RobotInteraction::Joint& vj)
+{
+  boost::mutex::scoped_lock slock(offset_map_lock_);
+  offset_map_.erase(vj.joint_name);
 }
 
 void RobotInteraction::InteractionHandler::clearPoseOffsets()
@@ -170,6 +187,20 @@ void RobotInteraction::InteractionHandler::clearLastMarkerPoses()
   pose_map_.clear();
 }
 
+void RobotInteraction::InteractionHandler::setMenuHandler(const boost::shared_ptr<interactive_markers::MenuHandler>& mh)
+{
+  menu_handler_ = mh;
+}
+
+const boost::shared_ptr<interactive_markers::MenuHandler>& RobotInteraction::InteractionHandler::getMenuHandler()
+{
+  return menu_handler_;
+}
+
+void RobotInteraction::InteractionHandler::clearMenuHandler()
+{
+  menu_handler_.reset();
+}
 
 robot_state::RobotStateConstPtr RobotInteraction::InteractionHandler::getState() const
 {
@@ -177,10 +208,10 @@ robot_state::RobotStateConstPtr RobotInteraction::InteractionHandler::getState()
   if (kstate_)
     return kstate_;
   else
-  {    
+  {
     do
     {
-      state_available_condition_.wait(ulock); 
+      state_available_condition_.wait(ulock);
     } while (!kstate_);
     return kstate_;
   }
@@ -236,7 +267,7 @@ void RobotInteraction::InteractionHandler::handleGeneric(const RobotInteraction:
     robot_state::RobotStatePtr state = getUniqueStateAccess();
     bool ok = g.process_feedback(*state, feedback);
     setStateToAccess(state);
-    
+
     bool error_state_changed = false;
     if (!ok)
     {
@@ -248,7 +279,7 @@ void RobotInteraction::InteractionHandler::handleGeneric(const RobotInteraction:
       error_state_changed = inError(g) ? true : false;
       error_state_.erase(g.marker_name_suffix);
     }
-    
+
     if (update_callback_)
       update_callback_(this, error_state_changed);
   }
@@ -256,10 +287,10 @@ void RobotInteraction::InteractionHandler::handleGeneric(const RobotInteraction:
 
 void RobotInteraction::InteractionHandler::handleEndEffector(const robot_interaction::RobotInteraction::EndEffector &eef,
                                                              const visualization_msgs::InteractiveMarkerFeedbackConstPtr &feedback)
-{    
+{
   if (feedback->event_type != visualization_msgs::InteractiveMarkerFeedback::POSE_UPDATE)
     return;
-  
+
   geometry_msgs::PoseStamped tpose;
   geometry_msgs::Pose offset;
   if (!getPoseOffset(eef, offset))
@@ -272,9 +303,9 @@ void RobotInteraction::InteractionHandler::handleEndEffector(const robot_interac
   }
   else
     return;
-  
+
   robot_state::RobotStatePtr state = getUniqueStateAccess();
-  bool update_state_result = robot_interaction::RobotInteraction::updateState(*state, eef, tpose.pose, ik_attempts_, ik_timeout_, state_validity_callback_fn_, lock_redundancy_);
+  bool update_state_result = robot_interaction::RobotInteraction::updateState(*state, eef, tpose.pose, ik_attempts_, ik_timeout_, state_validity_callback_fn_, kinematics_query_options_);
   setStateToAccess(state);
 
   bool error_state_changed = false;
@@ -288,17 +319,17 @@ void RobotInteraction::InteractionHandler::handleEndEffector(const robot_interac
     error_state_changed = inError(eef) ? true : false;
     error_state_.erase(eef.parent_group);
   }
-  
+
   if (update_callback_)
     update_callback_(this, error_state_changed);
 }
 
 void RobotInteraction::InteractionHandler::handleJoint(const robot_interaction::RobotInteraction::Joint &vj,
                                                        const visualization_msgs::InteractiveMarkerFeedbackConstPtr &feedback)
-{ 
+{
   if (feedback->event_type != visualization_msgs::InteractiveMarkerFeedback::POSE_UPDATE)
     return;
-  
+
   geometry_msgs::PoseStamped tpose;
   geometry_msgs::Pose offset;
   if (!getPoseOffset(vj, offset))
@@ -311,9 +342,9 @@ void RobotInteraction::InteractionHandler::handleJoint(const robot_interaction::
   }
   else
     return;
-  
-  if (!vj.parent_frame.empty() && vj.parent_frame != planning_frame_)
-  { 
+
+  if (!vj.parent_frame.empty() && !robot_state::Transforms::sameFrame(vj.parent_frame, planning_frame_))
+  {
     robot_state::RobotStatePtr state = getUniqueStateAccess();
     const robot_state::LinkState *ls = state->getLinkState(vj.parent_frame);
     if (ls)
@@ -331,7 +362,7 @@ void RobotInteraction::InteractionHandler::handleJoint(const robot_interaction::
     robot_interaction::RobotInteraction::updateState(*state, vj, tpose.pose);
     setStateToAccess(state);
   }
-  
+
   if (update_callback_)
     update_callback_(this, false);
 }
@@ -375,7 +406,7 @@ bool RobotInteraction::InteractionHandler::transformFeedbackPose(const visualiza
         tf::Transform tf_offset;
         tf::poseMsgToTF(offset, tf_offset);
         spose.setData(spose * tf_offset.inverse());
-        tf::poseStampedTFToMsg(spose, tpose); 
+        tf::poseStampedTFToMsg(spose, tpose);
       }
       catch (tf::TransformException& e)
       {
@@ -396,7 +427,7 @@ RobotInteraction::RobotInteraction(const robot_model::RobotModelConstPtr &robot_
 {
   topic_ = ns.empty() ? INTERACTIVE_MARKER_TOPIC : ns + "/" + INTERACTIVE_MARKER_TOPIC;
   int_marker_server_ = new interactive_markers::InteractiveMarkerServer(topic_);
-  
+
   // spin a thread that will process feedback events
   run_processing_thread_ = true;
   processing_thread_.reset(new boost::thread(boost::bind(&RobotInteraction::processingThread, this)));
@@ -417,14 +448,14 @@ void RobotInteraction::decideActiveComponents(const std::string &group, EndEffec
   decideActiveEndEffectors(group, style);
   decideActiveJoints(group);
   if (active_eef_.empty() && active_vj_.empty() && active_generic_.empty())
-    ROS_WARN_NAMED("robot_interaction", "No active joints or end effectors found. Make sure you have defined an end effector in your SRDF file and that kinematics.yaml is loaded in this node's namespace.");
+    ROS_INFO_NAMED("robot_interaction", "No active joints or end effectors found for group '%s'. Make sure you have defined an end effector in your SRDF file and that kinematics.yaml is loaded in this node's namespace.", group.c_str());
 }
 
 void RobotInteraction::addActiveComponent(const InteractiveMarkerConstructorFn &construct,
                                           const ProcessFeedbackFn &process,
                                           const InteractiveMarkerUpdateFn &update,
                                           const std::string &name)
-{   
+{
   boost::unique_lock<boost::mutex> ulock(marker_access_lock_);
   Generic g;
   g.construct_marker = construct;
@@ -437,7 +468,7 @@ void RobotInteraction::addActiveComponent(const InteractiveMarkerConstructorFn &
 
 double RobotInteraction::computeGroupMarkerSize(const std::string &group)
 {
-  static const double DEFAULT_SCALE = 0.2;
+  static const double DEFAULT_SCALE = 0.25;
   if (group.empty())
     return DEFAULT_SCALE;
   const robot_model::JointModelGroup *jmg = robot_model_->getJointModelGroup(group);
@@ -474,8 +505,8 @@ double RobotInteraction::computeGroupMarkerSize(const std::string &group)
   double s = std::max(std::max(hi.x() - lo.x(), hi.y() - lo.y()), hi.z() - lo.z());
   s *= 1.73205081; // sqrt(3)
 
-  // if the scale is less than 1mm, set it to default
-  if (s < 1e-3)
+  // if the scale is less than 5cm, set it to default
+  if (s < 0.05)
     s = DEFAULT_SCALE;
   return s;
 }
@@ -503,7 +534,7 @@ void RobotInteraction::decideActiveJoints(const std::string &group)
     default_state.setToDefaultValues();
     std::vector<double> aabb;
     default_state.computeAABB(aabb);
-    
+
     const std::vector<srdf::Model::VirtualJoint> &vj = srdf->getVirtualJoints();
     for (std::size_t i = 0 ; i < vj.size() ; ++i)
       if (vj[i].name_ == robot_model_->getRootJointName())
@@ -518,18 +549,18 @@ void RobotInteraction::decideActiveJoints(const std::string &group)
             v.dof = 3;
           else
             v.dof = 6;
-          // take the max of the X, Y, Z extent  
+          // take the max of the X, Y, Z extent
           v.size = std::max(std::max(aabb[1] - aabb[0], aabb[3] - aabb[2]), aabb[5] - aabb[4]);
           active_vj_.push_back(v);
           used.insert(v.joint_name);
         }
       }
   }
-  
+
   const std::vector<const robot_model::JointModel*> &joints = jmg->getJointModels();
   for (std::size_t i = 0 ; i < joints.size() ; ++i)
   {
-    if ((joints[i]->getType() == robot_model::JointModel::PLANAR || joints[i]->getType() == robot_model::JointModel::FLOATING) && 
+    if ((joints[i]->getType() == robot_model::JointModel::PLANAR || joints[i]->getType() == robot_model::JointModel::FLOATING) &&
         used.find(joints[i]->getName()) == used.end())
     {
       Joint v;
@@ -541,7 +572,7 @@ void RobotInteraction::decideActiveJoints(const std::string &group)
         v.dof = 3;
       else
         v.dof = 6;
-      // take the max of the X, Y, Z extent  
+      // take the max of the X, Y, Z extent
       v.size = computeGroupMarkerSize(group);
       active_vj_.push_back(v);
     }
@@ -551,26 +582,26 @@ void RobotInteraction::decideActiveJoints(const std::string &group)
 void RobotInteraction::decideActiveEndEffectors(const std::string &group, EndEffectorInteractionStyle style)
 {
   boost::unique_lock<boost::mutex> ulock(marker_access_lock_);
-  
+
   active_eef_.clear();
-  
+
   ROS_DEBUG_NAMED("robot_interaction", "Deciding active end-effectors for group '%s'", group.c_str());
-  
+
   if (group.empty())
     return;
-  
+
   const boost::shared_ptr<const srdf::Model> &srdf = robot_model_->getSRDF();
   const robot_model::JointModelGroup *jmg = robot_model_->getJointModelGroup(group);
-  
+
   if (!jmg || !srdf)
   {
     ROS_WARN_NAMED("robot_interaction", "Unable to decide active end effector: no joint model group or no srdf model");
     return;
   }
-  
+
   const std::vector<srdf::Model::EndEffector> &eef = srdf->getEndEffectors();
   const std::pair<robot_model::SolverAllocatorFn, robot_model::SolverAllocatorMapFn> &smap = jmg->getSolverAllocators();
-  
+
   // if we have an IK solver for the selected group, we check if there are any end effectors attached to this group
   if (smap.first)
   {
@@ -592,9 +623,9 @@ void RobotInteraction::decideActiveEndEffectors(const std::string &group, EndEff
           EndEffector ee;
           ee.parent_group = group;
           ee.parent_link = eef[i].parent_link_;
-          ee.eef_group = eef[i].component_group_;   
+          ee.eef_group = eef[i].component_group_;
           ee.interaction = style;
-          active_eef_.push_back(ee);          
+          active_eef_.push_back(ee);
           break;
         }
   }
@@ -612,7 +643,7 @@ void RobotInteraction::decideActiveEndEffectors(const std::string &group, EndEff
             EndEffector ee;
             ee.parent_group = it->first->getName();
             ee.parent_link = eef[i].parent_link_;
-            ee.eef_group = eef[i].component_group_;  
+            ee.eef_group = eef[i].component_group_;
             ee.interaction = style;
             active_eef_.push_back(ee);
             break;
@@ -653,30 +684,39 @@ void RobotInteraction::clearInteractiveMarkersUnsafe()
 }
 
 void RobotInteraction::addEndEffectorMarkers(const InteractionHandlerPtr &handler, const RobotInteraction::EndEffector& eef,
-                                             visualization_msgs::InteractiveMarker& im)
+                                             visualization_msgs::InteractiveMarker& im,
+                                             bool position,
+                                             bool orientation)
 {
   geometry_msgs::Pose pose;
   pose.orientation.w = 1;
-  addEndEffectorMarkers(handler, eef, pose, im);
+  addEndEffectorMarkers(handler, eef, pose, im, position, orientation);
 }
 
 void RobotInteraction::addEndEffectorMarkers(const InteractionHandlerPtr &handler, const RobotInteraction::EndEffector& eef,
-                                             const geometry_msgs::Pose& im_to_eef, visualization_msgs::InteractiveMarker& im)
+                                             const geometry_msgs::Pose& im_to_eef, visualization_msgs::InteractiveMarker& im,
+                                             bool position,
+                                             bool orientation)
 {
   if (eef.parent_group == eef.eef_group || !robot_model_->hasLinkModel(eef.parent_link))
     return;
-  
+
   visualization_msgs::InteractiveMarkerControl m_control;
   m_control.always_visible = false;
-  m_control.interaction_mode = m_control.MOVE_ROTATE;
-  
+  if (position && orientation)
+    m_control.interaction_mode = m_control.MOVE_ROTATE_3D;
+  else if (orientation)
+    m_control.interaction_mode = m_control.ROTATE_3D;
+  else
+    m_control.interaction_mode = m_control.MOVE_3D;
+
   std_msgs::ColorRGBA marker_color;
   const float *color = handler->inError(eef) ? END_EFFECTOR_UNREACHABLE_COLOR : END_EFFECTOR_REACHABLE_COLOR;
   marker_color.r = color[0];
   marker_color.g = color[1];
   marker_color.b = color[2];
   marker_color.a = color[3];
-  
+
   robot_state::RobotStateConstPtr kinematic_state = handler->getState();
   const std::vector<std::string> &link_names = kinematic_state->getJointStateGroup(eef.eef_group)->getJointModelGroup()->getLinkModelNames();
   visualization_msgs::MarkerArray marker_array;
@@ -685,7 +725,7 @@ void RobotInteraction::addEndEffectorMarkers(const InteractionHandlerPtr &handle
   tf::poseEigenToTF(kinematic_state->getLinkState(eef.parent_link)->getGlobalLinkTransform(), tf_root_to_link);
   // Release the ptr count on the kinematic state
   kinematic_state.reset();
-  
+
   for (std::size_t i = 0 ; i < marker_array.markers.size() ; ++i)
   {
     marker_array.markers[i].header = im.header;
@@ -702,7 +742,7 @@ void RobotInteraction::addEndEffectorMarkers(const InteractionHandlerPtr &handle
     // - - - - - - - - - - - - - - - - - - - - - - - - - -
     m_control.markers.push_back(marker_array.markers[i]);
   }
-  
+
   im.controls.push_back(m_control);
 }
 
@@ -722,25 +762,25 @@ static inline std::string getMarkerName(const RobotInteraction::InteractionHandl
 }
 
 void RobotInteraction::addInteractiveMarkers(const InteractionHandlerPtr &handler, const double marker_scale)
-{       
+{
   // If scale is left at default size of 0, scale will be based on end effector link size. a good value is between 0-1
   std::vector<visualization_msgs::InteractiveMarker> ims;
   {
     boost::unique_lock<boost::mutex> ulock(marker_access_lock_);
     robot_state::RobotStateConstPtr s = handler->getState();
-    
+
     for (std::size_t i = 0 ; i < active_generic_.size() ; ++i)
     {
       visualization_msgs::InteractiveMarker im;
       if (active_generic_[i].construct_marker(*s, im))
       {
-        im.name = getMarkerName(handler, active_generic_[i]);   
+        im.name = getMarkerName(handler, active_generic_[i]);
         shown_markers_[im.name] = i;
         ims.push_back(im);
         ROS_DEBUG_NAMED("robot_interaction", "Publishing interactive marker %s (size = %lf)", im.name.c_str(), im.scale);
       }
     }
-    
+
     for (std::size_t i = 0 ; i < active_eef_.size() ; ++i)
     {
       geometry_msgs::PoseStamped pose;
@@ -748,32 +788,41 @@ void RobotInteraction::addInteractiveMarkers(const InteractionHandlerPtr &handle
       pose.header.frame_id = robot_model_->getModelFrame();
       pose.header.stamp = ros::Time::now();
       computeMarkerPose(handler, active_eef_[i], *s, pose.pose, control_to_eef_tf);
-      
+
       std::string marker_name = getMarkerName(handler, active_eef_[i]);
       shown_markers_[marker_name] = i;
-      
+
       // Determine interactive maker size
       double mscale = marker_scale < std::numeric_limits<double>::epsilon() ? active_eef_[i].size : marker_scale;
-      
+
       visualization_msgs::InteractiveMarker im = makeEmptyInteractiveMarker(marker_name, pose, mscale);
       if (handler && handler->getControlsVisible())
       {
-        if (active_eef_[i].interaction & EEF_POSITION)
+        if (active_eef_[i].interaction & EEF_POSITION_ARROWS)
           addPositionControl(im, active_eef_[i].interaction & EEF_FIXED);
-        if (active_eef_[i].interaction & EEF_ORIENTATION)
+        if (active_eef_[i].interaction & EEF_ORIENTATION_CIRCLES)
           addOrientationControl(im, active_eef_[i].interaction & EEF_FIXED);
-        if (active_eef_[i].interaction & EEF_VIEWPLANE)
+        if (active_eef_[i].interaction & (EEF_POSITION_SPHERE|EEF_ORIENTATION_SPHERE))
         {
           std_msgs::ColorRGBA color;
           color.r = 0;
           color.g = 1;
           color.b = 1;
           color.a = 0.5;
-          addViewPlaneControl(im, mscale * 0.25, color);
+          addViewPlaneControl(im,
+                              mscale * 0.25,
+                              color,
+                              active_eef_[i].interaction&EEF_POSITION_SPHERE,
+                              active_eef_[i].interaction&EEF_ORIENTATION_SPHERE);
         }
       }
-      if (handler && handler->getMeshesVisible())
-        addEndEffectorMarkers(handler, active_eef_[i], control_to_eef_tf, im);
+      if (handler && handler->getMeshesVisible() && (active_eef_[i].interaction & (EEF_POSITION_EEF|EEF_ORIENTATION_EEF)))
+        addEndEffectorMarkers(handler,
+                              active_eef_[i],
+                              control_to_eef_tf,
+                              im,
+                              active_eef_[i].interaction & EEF_POSITION_EEF,
+                              active_eef_[i].interaction & EEF_ORIENTATION_EEF);
       ims.push_back(im);
       ROS_DEBUG_NAMED("robot_interaction", "Publishing interactive marker %s (size = %lf)", marker_name.c_str(), mscale);
     }
@@ -789,7 +838,7 @@ void RobotInteraction::addInteractiveMarkers(const InteractionHandlerPtr &handle
 
       // Determine interactive maker size
       double mscale = marker_scale < std::numeric_limits<double>::epsilon() ? active_vj_[i].size : marker_scale;
-      
+
       visualization_msgs::InteractiveMarker im = makeEmptyInteractiveMarker(marker_name, pose, mscale);
       if (handler && handler->getControlsVisible())
       {
@@ -797,13 +846,13 @@ void RobotInteraction::addInteractiveMarkers(const InteractionHandlerPtr &handle
           addPlanarXYControl(im, false);
         else
           add6DOFControl(im, false);
-      }   
+      }
       ims.push_back(im);
       ROS_DEBUG_NAMED("robot_interaction", "Publishing interactive marker %s (size = %lf)", marker_name.c_str(), mscale);
     }
     handlers_[handler->getName()] = handler;
   }
-  
+
   // we do this while marker_access_lock_ is unlocked because the interactive marker server locks
   // for most function calls, and maintains that lock while the feedback callback is running
   // that can cause a deadlock if we were to run the loop below while marker_access_lock_ is locked
@@ -811,6 +860,10 @@ void RobotInteraction::addInteractiveMarkers(const InteractionHandlerPtr &handle
   {
     int_marker_server_->insert(ims[i]);
     int_marker_server_->setCallback(ims[i].name, boost::bind(&RobotInteraction::processInteractiveMarkerFeedback, this, _1));
+
+    // Add menu handler to all markers that this interaction handler creates.
+    if (boost::shared_ptr<interactive_markers::MenuHandler> mh = handler->getMenuHandler())
+      mh->apply(*int_marker_server_, ims[i].name);
   }
 }
 
@@ -818,17 +871,17 @@ void RobotInteraction::computeMarkerPose(const InteractionHandlerPtr &handler, c
                                          geometry_msgs::Pose &pose, geometry_msgs::Pose &control_to_eef_tf) const
 {
   const robot_state::LinkState *ls = robot_state.getLinkState(eef.parent_link);
-  
+
   // Need to allow for control pose offsets
   tf::Transform tf_root_to_link, tf_root_to_control;
   tf::poseEigenToTF(ls->getGlobalLinkTransform(), tf_root_to_link);
-  
+
   geometry_msgs::Pose msg_link_to_control;
   if (handler->getPoseOffset(eef, msg_link_to_control))
   {
     tf::Transform tf_link_to_control;
     tf::poseMsgToTF(msg_link_to_control, tf_link_to_control);
-    
+
     tf_root_to_control = tf_root_to_link * tf_link_to_control;
     tf::poseTFToMsg(tf_link_to_control.inverse(), control_to_eef_tf);
   }
@@ -840,7 +893,7 @@ void RobotInteraction::computeMarkerPose(const InteractionHandlerPtr &handler, c
     control_to_eef_tf.orientation.z = 0.0;
     control_to_eef_tf.orientation.w = 1.0;
   }
-  
+
   tf::poseTFToMsg(tf_root_to_control, pose);
 }
 
@@ -849,7 +902,7 @@ void RobotInteraction::updateInteractiveMarkers(const InteractionHandlerPtr &han
   std::map<std::string, geometry_msgs::Pose> pose_updates;
   {
     boost::unique_lock<boost::mutex> ulock(marker_access_lock_);
-    
+
     robot_state::RobotStateConstPtr s = handler->getState();
     for (std::size_t i = 0 ; i < active_eef_.size() ; ++i)
     {
@@ -857,16 +910,16 @@ void RobotInteraction::updateInteractiveMarkers(const InteractionHandlerPtr &han
       geometry_msgs::Pose control_to_eef_tf;
       computeMarkerPose(handler, active_eef_[i], *s, pose_updates[marker_name], control_to_eef_tf);
     }
-    
+
     for (std::size_t i = 0 ; i < active_vj_.size() ; ++i)
     {
       std::string marker_name = getMarkerName(handler, active_vj_[i]);
       const robot_state::LinkState *ls = s->getLinkState(active_vj_[i].connecting_link);
       tf::poseEigenToMsg(ls->getGlobalLinkTransform(), pose_updates[marker_name]);
     }
-    
+
     for (std::size_t i = 0 ; i < active_generic_.size() ; ++i)
-    {     
+    {
       std::string marker_name = getMarkerName(handler, active_generic_[i]);
       geometry_msgs::Pose pose;
       if (active_generic_[i].update_pose && active_generic_[i].update_pose(*s, pose))
@@ -929,10 +982,12 @@ bool RobotInteraction::updateState(robot_state::RobotState &state, const Joint &
 }
 
 bool RobotInteraction::updateState(robot_state::RobotState &state, const EndEffector &eef, const geometry_msgs::Pose &pose,
-                                   unsigned int attempts, double ik_timeout, 
-                                   const robot_state::StateValidityCallbackFn &validity_callback, bool redundancy_locked)
+                                   unsigned int attempts, double ik_timeout,
+                                   const robot_state::StateValidityCallbackFn &validity_callback,
+                                   const kinematics::KinematicsQueryOptions &kinematics_query_options)
 {
-  return state.getJointStateGroup(eef.parent_group)->setFromIK(pose, eef.parent_link, redundancy_locked ? 1 : attempts, ik_timeout, validity_callback, redundancy_locked);
+  return state.getJointStateGroup(eef.parent_group)->setFromIK(pose, eef.parent_link, kinematics_query_options.lock_redundant_joints ? 1 : attempts,
+                                                               ik_timeout, validity_callback, kinematics_query_options);
 }
 
 void RobotInteraction::processInteractiveMarkerFeedback(const visualization_msgs::InteractiveMarkerFeedbackConstPtr& feedback)
@@ -1039,7 +1094,7 @@ void RobotInteraction::processingThread()
           }
           else
             if (marker_class == "GG")
-            { 
+            {
               InteractionHandlerPtr ih = jt->second;
               Generic g = active_generic_[it->second];
               marker_access_lock_.unlock();

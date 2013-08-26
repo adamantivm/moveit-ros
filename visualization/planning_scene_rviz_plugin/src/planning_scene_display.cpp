@@ -1,31 +1,36 @@
-/*
- * Copyright (c) 2008, Willow Garage, Inc.
- * All rights reserved.
+/*********************************************************************
+ * Software License Agreement (BSD License)
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
+ *  Copyright (c) 2008, Willow Garage, Inc.
+ *  All rights reserved.
  *
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *     * Redistributions in binary form must reproduce the above copyright
- *       notice, this list of conditions and the following disclaimer in the
- *       documentation and/or other materials provided with the distribution.
- *     * Neither the name of the Willow Garage, Inc. nor the names of its
- *       contributors may be used to endorse or promote products derived from
- *       this software without specific prior written permission.
+ *  Redistribution and use in source and binary forms, with or without
+ *  modification, are permitted provided that the following conditions
+ *  are met:
  *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- */
+ *   * Redistributions of source code must retain the above copyright
+ *     notice, this list of conditions and the following disclaimer.
+ *   * Redistributions in binary form must reproduce the above
+ *     copyright notice, this list of conditions and the following
+ *     disclaimer in the documentation and/or other materials provided
+ *     with the distribution.
+ *   * Neither the name of Willow Garage nor the names of its
+ *     contributors may be used to endorse or promote products derived
+ *     from this software without specific prior written permission.
+ *
+ *  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ *  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ *  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ *  FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+ *  COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+ *  INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+ *  BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ *  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ *  CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ *  LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+ *  ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ *  POSSIBILITY OF SUCH DAMAGE.
+ *********************************************************************/
 
 /* Author: Ioan Sucan */
 
@@ -57,7 +62,7 @@ namespace moveit_rviz_plugin
 // Base class contructor
 // ******************************************************************************************
 PlanningSceneDisplay::PlanningSceneDisplay(bool listen_to_planning_scene, bool show_scene_robot) :
-  Display(),  
+  Display(),
   model_is_loading_(false),
   current_scene_time_(0.0f),
   planning_scene_needs_render_(true)
@@ -66,7 +71,7 @@ PlanningSceneDisplay::PlanningSceneDisplay(bool listen_to_planning_scene, bool s
     new rviz::StringProperty( "Robot Description", "robot_description", "The name of the ROS parameter where the URDF for the robot is loaded",
                               this,
                               SLOT( changedRobotDescription() ), this );
-  
+
   if (listen_to_planning_scene)
     planning_scene_topic_property_ =
       new rviz::RosTopicProperty( "Planning Scene Topic", "planning_scene",
@@ -76,10 +81,10 @@ PlanningSceneDisplay::PlanningSceneDisplay(bool listen_to_planning_scene, bool s
                                   SLOT( changedPlanningSceneTopic() ), this );
   else
     planning_scene_topic_property_ = NULL;
-  
+
   // Planning scene category -------------------------------------------------------------------------------------------
   scene_category_ = new rviz::Property( "Scene Geometry", QVariant(), "", this );
-  
+
   scene_name_property_ =
     new rviz::StringProperty( "Scene Name", "(noname)", "Shows the name of the planning scene",
                               scene_category_,
@@ -121,29 +126,23 @@ PlanningSceneDisplay::PlanningSceneDisplay(bool listen_to_planning_scene, bool s
                              scene_category_,
                              SLOT( changedSceneDisplayTime() ), this );
   scene_display_time_property_->setMin(0.0001);
-  
+
   if (show_scene_robot)
   {
     robot_category_  = new rviz::Property( "Scene Robot",   QVariant(), "", this );
-    
-    root_link_name_property_ =
-      new rviz::StringProperty( "Robot Root Link", "", "Shows the name of the root link for the robot model",
-                                robot_category_,
-                                SLOT( changedRootLinkName() ), this );
-    root_link_name_property_->setReadOnly(true);
-    
+
     scene_robot_enabled_property_ =
       new rviz::BoolProperty( "Show Scene Robot", true, "Indicates whether the robot state specified by the planning scene should be displayed",
                               robot_category_,
                               SLOT( changedSceneRobotEnabled() ), this );
-    
+
     robot_alpha_property_ =
       new rviz::FloatProperty( "Robot Alpha", 0.5f, "Specifies the alpha for the robot links",
                                robot_category_,
                                SLOT( changedRobotSceneAlpha() ), this );
     robot_alpha_property_->setMin( 0.0 );
     robot_alpha_property_->setMax( 1.0 );
-    
+
     attached_body_color_property_ = new rviz::ColorProperty( "Attached Body Color", QColor(150, 50, 150), "The color for the attached bodies",
                                                              robot_category_,
                                                              SLOT( changedAttachedBodyColor() ), this );
@@ -151,7 +150,6 @@ PlanningSceneDisplay::PlanningSceneDisplay(bool listen_to_planning_scene, bool s
   else
   {
     robot_category_ = NULL;
-    root_link_name_property_ = NULL;
     scene_robot_enabled_property_ = NULL;
     robot_alpha_property_ = NULL;
     attached_body_color_property_ = NULL;
@@ -164,7 +162,7 @@ PlanningSceneDisplay::PlanningSceneDisplay(bool listen_to_planning_scene, bool s
 PlanningSceneDisplay::~PlanningSceneDisplay()
 {
   clearJobs();
-  
+
   planning_scene_render_.reset();
   context_->getSceneManager()->destroySceneNode(planning_scene_node_->getName());
   if (planning_scene_robot_)
@@ -173,7 +171,7 @@ PlanningSceneDisplay::~PlanningSceneDisplay()
 }
 
 void PlanningSceneDisplay::clearJobs()
-{  
+{
   background_process_.clear();
   {
     boost::unique_lock<boost::mutex> ulock(main_loop_jobs_lock_);
@@ -182,12 +180,12 @@ void PlanningSceneDisplay::clearJobs()
 }
 
 void PlanningSceneDisplay::onInitialize()
-{  
+{
   Display::onInitialize();
-  
+
   // the scene node that contains everything
   planning_scene_node_ = scene_node_->createChildSceneNode();
-  
+
   if (robot_category_)
   {
     planning_scene_robot_.reset(new RobotStateVisualization(planning_scene_node_, context_, "Planning Scene", robot_category_));
@@ -196,14 +194,14 @@ void PlanningSceneDisplay::onInitialize()
 }
 
 void PlanningSceneDisplay::reset()
-{ 
+{
   planning_scene_render_.reset();
   if (planning_scene_robot_)
     planning_scene_robot_->clear();
-  
+
   addBackgroundJob(boost::bind(&PlanningSceneDisplay::loadRobotModel, this), "loadRobotModel");
   Display::reset();
-  
+
   if (planning_scene_robot_)
     planning_scene_robot_->setVisible(scene_robot_enabled_property_->getBool());
 }
@@ -247,7 +245,7 @@ void PlanningSceneDisplay::executeMainLoopJobs()
       ROS_ERROR("Exception caught executing main loop job");
     }
     main_loop_jobs_lock_.lock();
-  }    
+  }
   main_loop_jobs_empty_condition_.notify_all();
   main_loop_jobs_lock_.unlock();
 }
@@ -257,7 +255,7 @@ const planning_scene_monitor::PlanningSceneMonitorPtr& PlanningSceneDisplay::get
   return planning_scene_monitor_;
 }
 
-const robot_model::RobotModelConstPtr& PlanningSceneDisplay::getRobotModel()
+const robot_model::RobotModelConstPtr& PlanningSceneDisplay::getRobotModel() const
 {
   if (planning_scene_monitor_)
     return planning_scene_monitor_->getRobotModel();
@@ -301,12 +299,6 @@ void PlanningSceneDisplay::changedSceneName()
     ps->setName(scene_name_property_->getStdString());
 }
 
-void PlanningSceneDisplay::changedRootLinkName()
-{
-  if (getRobotModel() && root_link_name_property_)
-    root_link_name_property_->setStdString(getRobotModel()->getRootLinkName());
-}
-
 void PlanningSceneDisplay::renderPlanningScene()
 {
   if (planning_scene_render_ && planning_scene_needs_render_)
@@ -316,7 +308,7 @@ void PlanningSceneDisplay::renderPlanningScene()
     if (attached_body_color_property_)
       color = attached_body_color_property_->getColor();
     rviz::Color attached_color(color.redF(), color.greenF(), color.blueF());
-    
+
     try
     {
       const planning_scene_monitor::LockedPlanningSceneRO &ps = getPlanningSceneRO();
@@ -331,7 +323,7 @@ void PlanningSceneDisplay::renderPlanningScene()
       ROS_ERROR("Exception thrown while rendering planning scene");
     }
     planning_scene_needs_render_ = false;
-    planning_scene_render_->getGeometryNode()->setVisible(scene_enabled_property_->getBool()); 
+    planning_scene_render_->getGeometryNode()->setVisible(scene_enabled_property_->getBool());
   }
 }
 
@@ -376,7 +368,7 @@ void PlanningSceneDisplay::changedSceneRobotEnabled()
 void PlanningSceneDisplay::changedSceneEnabled()
 {
   if (planning_scene_render_)
-    planning_scene_render_->getGeometryNode()->setVisible(scene_enabled_property_->getBool()); 
+    planning_scene_render_->getGeometryNode()->setVisible(scene_enabled_property_->getBool());
 }
 
 void PlanningSceneDisplay::setGroupColor(rviz::Robot* robot, const std::string& group_name, const QColor &color)
@@ -394,7 +386,7 @@ void PlanningSceneDisplay::setGroupColor(rviz::Robot* robot, const std::string& 
 }
 
 void PlanningSceneDisplay::unsetAllColors(rviz::Robot* robot)
-{ 
+{
   if (getRobotModel())
   {
     const std::vector<std::string> &links = getRobotModel()->getLinkModelNamesWithCollisionGeometry();
@@ -432,7 +424,7 @@ void PlanningSceneDisplay::unsetLinkColor(const std::string& link_name)
 void PlanningSceneDisplay::setLinkColor(rviz::Robot* robot, const std::string& link_name, const QColor &color )
 {
   rviz::RobotLink *link = robot->getLink(link_name);
-  
+
   // Check if link exists
   if (link)
     link->setColor( color.redF(), color.greenF(), color.blueF() );
@@ -443,7 +435,7 @@ void PlanningSceneDisplay::unsetLinkColor(rviz::Robot* robot, const std::string&
   rviz::RobotLink *link = robot->getLink(link_name);
 
   // Check if link exists
-  if (link) 
+  if (link)
     link->unsetColor();
 }
 
@@ -461,7 +453,7 @@ planning_scene_monitor::PlanningSceneMonitorPtr PlanningSceneDisplay::createPlan
 void PlanningSceneDisplay::clearRobotModel()
 {
   planning_scene_render_.reset();
-  planning_scene_monitor_.reset(); // this so that the destructor of the PlanningSceneMonitor gets called before a new instance of a scene monitor is constructed  
+  planning_scene_monitor_.reset(); // this so that the destructor of the PlanningSceneMonitor gets called before a new instance of a scene monitor is constructed
 }
 
 void PlanningSceneDisplay::loadRobotModel()
@@ -473,10 +465,10 @@ void PlanningSceneDisplay::loadRobotModel()
   // we need to make sure the clearing of the robot model is in the main thread,
   // so that rendering operations do not have data removed from underneath,
   // so the next function is executed in the main loop
-  addMainLoopJob(boost::bind(&PlanningSceneDisplay::clearRobotModel, this)); 
-  
+  addMainLoopJob(boost::bind(&PlanningSceneDisplay::clearRobotModel, this));
+
   waitForAllMainLoopJobs();
-  
+
   planning_scene_monitor::PlanningSceneMonitorPtr psm = createPlanningSceneMonitor();
   if (psm->getPlanningScene())
   {
@@ -489,10 +481,10 @@ void PlanningSceneDisplay::loadRobotModel()
   {
     setStatus(rviz::StatusProperty::Error, "PlanningScene", "No Planning Scene Loaded");
   }
-  
+
   if (planning_scene_monitor_)
     planning_scene_monitor_->addUpdateCallback(boost::bind(&PlanningSceneDisplay::sceneMonitorReceivedUpdate, this, _1));
-  
+
   model_is_loading_ = false;
 }
 
@@ -501,25 +493,18 @@ void PlanningSceneDisplay::onRobotModelLoaded()
   if (planning_scene_topic_property_)
     planning_scene_monitor_->startSceneMonitor(planning_scene_topic_property_->getStdString());
   planning_scene_render_.reset(new PlanningSceneRender(planning_scene_node_, context_, planning_scene_robot_));
-  planning_scene_render_->getGeometryNode()->setVisible(scene_enabled_property_->getBool()); 
-  
+  planning_scene_render_->getGeometryNode()->setVisible(scene_enabled_property_->getBool());
+
   const planning_scene_monitor::LockedPlanningSceneRO &ps = getPlanningSceneRO();
   if (planning_scene_robot_)
   {
     planning_scene_robot_->load(*getRobotModel()->getURDF());
     planning_scene_robot_->update(robot_state::RobotStatePtr(new robot_state::RobotState(ps->getCurrentState())));
   }
-  
+
   bool oldState = scene_name_property_->blockSignals(true);
   scene_name_property_->setStdString(ps->getName());
   scene_name_property_->blockSignals(oldState);
-
-  if (root_link_name_property_)
-  {
-    oldState = root_link_name_property_->blockSignals(true);
-    root_link_name_property_->setStdString(getRobotModel()->getRootLinkName());
-    root_link_name_property_->blockSignals(oldState);
-  }
 }
 
 void PlanningSceneDisplay::sceneMonitorReceivedUpdate(planning_scene_monitor::PlanningSceneMonitor::SceneUpdateType update_type)
@@ -533,23 +518,19 @@ void PlanningSceneDisplay::onSceneMonitorReceivedUpdate(planning_scene_monitor::
   scene_name_property_->setStdString(getPlanningSceneRO()->getName());
   scene_name_property_->blockSignals(oldState);
 
-  oldState = root_link_name_property_->blockSignals(true);
-  root_link_name_property_->setStdString(getRobotModel()->getRootLinkName());
-  root_link_name_property_->blockSignals(oldState);
-  
   planning_scene_needs_render_ = true;
 }
 
 void PlanningSceneDisplay::onEnable()
 {
   Display::onEnable();
-  
+
   addBackgroundJob(boost::bind(&PlanningSceneDisplay::loadRobotModel, this), "loadRobotModel");
-  
+
   if (planning_scene_robot_)
     planning_scene_robot_->setVisible(scene_robot_enabled_property_->getBool());
   if (planning_scene_render_)
-    planning_scene_render_->getGeometryNode()->setVisible(scene_enabled_property_->getBool()); 
+    planning_scene_render_->getGeometryNode()->setVisible(scene_enabled_property_->getBool());
 
   calculateOffsetPosition();
 }
@@ -580,7 +561,7 @@ void PlanningSceneDisplay::update(float wall_dt, float ros_dt)
   Display::update(wall_dt, ros_dt);
 
   executeMainLoopJobs();
-  
+
   if (planning_scene_monitor_)
     updateInternal(wall_dt, ros_dt);
 }
@@ -609,10 +590,10 @@ void PlanningSceneDisplay::save( rviz::Config config ) const
 // Calculate Offset Position
 // ******************************************************************************************
 void PlanningSceneDisplay::calculateOffsetPosition()
-{  
+{
   if (!getRobotModel())
     return;
-  
+
   tf::Stamped<tf::Pose> pose(tf::Pose::getIdentity(), ros::Time(0), getRobotModel()->getModelFrame());
   static const unsigned int max_attempts = 10;
   unsigned int attempts = 0;
@@ -621,7 +602,7 @@ void PlanningSceneDisplay::calculateOffsetPosition()
     ros::Duration(0.1).sleep();
     attempts++;
   }
-  
+
   if (attempts < max_attempts)
   {
     try
@@ -643,8 +624,8 @@ void PlanningSceneDisplay::calculateOffsetPosition()
 
 void PlanningSceneDisplay::fixedFrameChanged()
 {
-  Display::fixedFrameChanged(); 
-  calculateOffsetPosition();  
+  Display::fixedFrameChanged();
+  calculateOffsetPosition();
 }
 
 

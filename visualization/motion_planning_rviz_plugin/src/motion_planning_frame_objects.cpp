@@ -1,31 +1,36 @@
-/*
- * Copyright (c) 2012, Willow Garage, Inc.
- * All rights reserved.
+/*********************************************************************
+ * Software License Agreement (BSD License)
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
+ *  Copyright (c) 2012, Willow Garage, Inc.
+ *  All rights reserved.
  *
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *     * Redistributions in binary form must reproduce the above copyright
- *       notice, this list of conditions and the following disclaimer in the
- *       documentation and/or other materials provided with the distribution.
- *     * Neither the name of the Willow Garage, Inc. nor the names of its
- *       contributors may be used to endorse or promote products derived from
- *       this software without specific prior written permission.
+ *  Redistribution and use in source and binary forms, with or without
+ *  modification, are permitted provided that the following conditions
+ *  are met:
  *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- */
+ *   * Redistributions of source code must retain the above copyright
+ *     notice, this list of conditions and the following disclaimer.
+ *   * Redistributions in binary form must reproduce the above
+ *     copyright notice, this list of conditions and the following
+ *     disclaimer in the documentation and/or other materials provided
+ *     with the distribution.
+ *   * Neither the name of Willow Garage nor the names of its
+ *     contributors may be used to endorse or promote products derived
+ *     from this software without specific prior written permission.
+ *
+ *  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ *  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ *  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ *  FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+ *  COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+ *  INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+ *  BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ *  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ *  CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ *  LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+ *  ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ *  POSSIBILITY OF SUCH DAMAGE.
+ *********************************************************************/
 
 /* Author: Ioan Sucan, Mario Prats */
 
@@ -312,15 +317,15 @@ void MotionPlanningFrame::updateCollisionObjectPose(bool update_marker_position)
       p.translation()[0] = ui_->object_x->value();
       p.translation()[1] = ui_->object_y->value();
       p.translation()[2] = ui_->object_z->value();
-      
+
       p = Eigen::Translation3d(p.translation()) *
         (Eigen::AngleAxisd(ui_->object_rx->value(), Eigen::Vector3d::UnitX()) *
          Eigen::AngleAxisd(ui_->object_ry->value(), Eigen::Vector3d::UnitY()) *
          Eigen::AngleAxisd(ui_->object_rz->value(), Eigen::Vector3d::UnitZ()));
-      
+
       ps->getWorldNonConst()->moveShapeInObject(obj->id_, obj->shapes_[0], p);
       planning_display_->queueRenderSceneGeometry();
-      
+
       // Update the interactive marker pose to match the manually introduced one
       if (update_marker_position && scene_marker_)
       {
@@ -371,7 +376,7 @@ void  MotionPlanningFrame::imProcessFeedback(visualization_msgs::InteractiveMark
   oldState = ui_->object_rx->blockSignals(true);
   ui_->object_rx->setValue(xyz[0]);
   ui_->object_rx->blockSignals(oldState);
-  
+
   oldState = ui_->object_ry->blockSignals(true);
   ui_->object_ry->setValue(xyz[1]);
   ui_->object_ry->blockSignals(oldState);
@@ -379,7 +384,7 @@ void  MotionPlanningFrame::imProcessFeedback(visualization_msgs::InteractiveMark
   oldState = ui_->object_rz->blockSignals(true);
   ui_->object_rz->setValue(xyz[2]);
   ui_->object_rz->blockSignals(oldState);
-  
+
   updateCollisionObjectPose(false);
 }
 
@@ -643,7 +648,7 @@ void MotionPlanningFrame::computeLoadQueryButtonClicked()
         if (got_q)
         {
           robot_state::RobotStatePtr start_state(new robot_state::RobotState(*planning_display_->getQueryStartState()));
-          robot_state::robotStateMsgToRobotState(*planning_display_->getPlanningSceneRO()->getTransforms(), mp->start_state, *start_state);
+          robot_state::robotStateMsgToRobotState(planning_display_->getPlanningSceneRO()->getTransforms(), mp->start_state, *start_state);
           planning_display_->setQueryStartState(*start_state);
 
           robot_state::RobotStatePtr goal_state(new robot_state::RobotState(*planning_display_->getQueryGoalState()));
@@ -681,7 +686,7 @@ void MotionPlanningFrame::addObject(const collision_detection::WorldPtr &world, 
 void MotionPlanningFrame::createSceneInteractiveMarker()
 {
   QList<QListWidgetItem *> sel = ui_->collision_objects_list->selectedItems();
-  if (sel.empty() || planning_display_->getRobotInteraction()->getActiveEndEffectors().empty())
+  if (sel.empty())
     return;
 
   const planning_scene_monitor::LockedPlanningSceneRO &ps = planning_display_->getPlanningSceneRO();
@@ -851,8 +856,7 @@ void MotionPlanningFrame::populateCollisionObjectsList()
       const std::vector<std::string> &collision_object_names = ps->getWorld()->getObjectIds();
       for (std::size_t i = 0 ; i < collision_object_names.size() ; ++i)
       {
-        if (collision_object_names[i] == planning_scene::PlanningScene::OCTOMAP_NS ||
-            collision_object_names[i] == planning_scene::PlanningScene::COLLISION_MAP_NS)
+        if (collision_object_names[i] == planning_scene::PlanningScene::OCTOMAP_NS)
           continue;
 
         QListWidgetItem *item = new QListWidgetItem(QString::fromStdString(collision_object_names[i]),
@@ -890,7 +894,7 @@ void MotionPlanningFrame::populateCollisionObjectsList()
 }
 
 void MotionPlanningFrame::exportAsTextButtonClicked()
-{ 
+{
   QString path = QFileDialog::getSaveFileName(this, tr("Export Scene Geometry"), tr(""), tr("Scene Geometry (*.scene)"));
   if (!path.isEmpty())
     planning_display_->addBackgroundJob(boost::bind(&MotionPlanningFrame::computeExportAsText, this, path.toStdString()), "export as text");
@@ -924,8 +928,8 @@ void MotionPlanningFrame::computeImportFromText(const std::string &path)
     {
       ps->loadGeometryFromStream(fin);
       fin.close();
-      ROS_INFO("Loaded scene geometry from '%s'", path.c_str()); 
-      planning_display_->addMainLoopJob(boost::bind(&MotionPlanningFrame::populateCollisionObjectsList, this));  
+      ROS_INFO("Loaded scene geometry from '%s'", path.c_str());
+      planning_display_->addMainLoopJob(boost::bind(&MotionPlanningFrame::populateCollisionObjectsList, this));
       planning_display_->queueRenderSceneGeometry();
     }
     else
@@ -934,9 +938,9 @@ void MotionPlanningFrame::computeImportFromText(const std::string &path)
 }
 
 void MotionPlanningFrame::importFromTextButtonClicked()
-{ 
+{
   QString path = QFileDialog::getOpenFileName(this, tr("Import Scene Geometry"), tr(""), tr("Scene Geometry (*.scene)"));
-  if (!path.isEmpty()) 
+  if (!path.isEmpty())
     planning_display_->addBackgroundJob(boost::bind(&MotionPlanningFrame::computeImportFromText, this, path.toStdString()), "import from text");
 }
 

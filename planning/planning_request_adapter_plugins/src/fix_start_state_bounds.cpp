@@ -1,36 +1,36 @@
 /*********************************************************************
-* Software License Agreement (BSD License)
-*
-*  Copyright (c) 2012, Willow Garage, Inc.
-*  All rights reserved.
-*
-*  Redistribution and use in source and binary forms, with or without
-*  modification, are permitted provided that the following conditions
-*  are met:
-*
-*   * Redistributions of source code must retain the above copyright
-*     notice, this list of conditions and the following disclaimer.
-*   * Redistributions in binary form must reproduce the above
-*     copyright notice, this list of conditions and the following
-*     disclaimer in the documentation and/or other materials provided
-*     with the distribution.
-*   * Neither the name of the Willow Garage nor the names of its
-*     contributors may be used to endorse or promote products derived
-*     from this software without specific prior written permission.
-*
-*  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-*  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-*  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
-*  FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
-*  COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
-*  INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-*  BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-*  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-*  CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
-*  LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
-*  ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-*  POSSIBILITY OF SUCH DAMAGE.
-*********************************************************************/
+ * Software License Agreement (BSD License)
+ *
+ *  Copyright (c) 2012, Willow Garage, Inc.
+ *  All rights reserved.
+ *
+ *  Redistribution and use in source and binary forms, with or without
+ *  modification, are permitted provided that the following conditions
+ *  are met:
+ *
+ *   * Redistributions of source code must retain the above copyright
+ *     notice, this list of conditions and the following disclaimer.
+ *   * Redistributions in binary form must reproduce the above
+ *     copyright notice, this list of conditions and the following
+ *     disclaimer in the documentation and/or other materials provided
+ *     with the distribution.
+ *   * Neither the name of Willow Garage nor the names of its
+ *     contributors may be used to endorse or promote products derived
+ *     from this software without specific prior written permission.
+ *
+ *  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ *  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ *  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ *  FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+ *  COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+ *  INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+ *  BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ *  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ *  CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ *  LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+ *  ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ *  POSSIBILITY OF SUCH DAMAGE.
+ *********************************************************************/
 
 /* Author: Ioan Sucan */
 
@@ -50,7 +50,7 @@ public:
 
   static const std::string BOUNDS_PARAM_NAME;
   static const std::string DT_PARAM_NAME;
-  
+
   FixStartStateBounds() : planning_request_adapter::PlanningRequestAdapter(), nh_("~")
   {
     if (!nh_.getParam(BOUNDS_PARAM_NAME, bounds_dist_))
@@ -59,8 +59,8 @@ public:
       ROS_INFO_STREAM("Param '" << BOUNDS_PARAM_NAME << "' was not set. Using default value: " << bounds_dist_);
     }
     else
-      ROS_INFO_STREAM("Param '" << BOUNDS_PARAM_NAME << "' was set to " << bounds_dist_); 
-    
+      ROS_INFO_STREAM("Param '" << BOUNDS_PARAM_NAME << "' was set to " << bounds_dist_);
+
     if (!nh_.getParam(DT_PARAM_NAME, max_dt_offset_))
     {
       max_dt_offset_ = 0.5;
@@ -69,36 +69,36 @@ public:
     else
       ROS_INFO_STREAM("Param '" << DT_PARAM_NAME << "' was set to " << max_dt_offset_);
   }
-  
+
   virtual std::string getDescription() const { return "Fix Start State Bounds"; }
-  
-  
+
+
   virtual bool adaptAndPlan(const PlannerFn &planner,
                             const planning_scene::PlanningSceneConstPtr& planning_scene,
-                            const planning_interface::MotionPlanRequest &req, 
+                            const planning_interface::MotionPlanRequest &req,
                             planning_interface::MotionPlanResponse &res,
                             std::vector<std::size_t> &added_path_index) const
   {
     ROS_DEBUG("Running '%s'", getDescription().c_str());
-    
+
     // get the specified start state
     robot_state::RobotState start_state = planning_scene->getCurrentState();
-    robot_state::robotStateMsgToRobotState(*planning_scene->getTransforms(), req.start_state, start_state);
+    robot_state::robotStateMsgToRobotState(planning_scene->getTransforms(), req.start_state, start_state);
 
-    const std::vector<robot_state::JointState*> &jstates = 
-      planning_scene->getRobotModel()->hasJointModelGroup(req.group_name) ? 
-      start_state.getJointStateGroup(req.group_name)->getJointStateVector() : 
-      start_state.getJointStateVector(); 
-    
+    const std::vector<robot_state::JointState*> &jstates =
+      planning_scene->getRobotModel()->hasJointModelGroup(req.group_name) ?
+      start_state.getJointStateGroup(req.group_name)->getJointStateVector() :
+      start_state.getJointStateVector();
+
     bool change_req = false;
     for (std::size_t i = 0 ; i < jstates.size() ; ++i)
-    { 
+    {
       // Check if we have a revolute, continuous joint. If we do, then we only need to make sure
-      // it is within de model's declared bounds (usually -Pi, Pi), since the values wrap around. 
+      // it is within de model's declared bounds (usually -Pi, Pi), since the values wrap around.
       // It is possible that the encoder maintains values outside the range [-Pi, Pi], to inform
       // how many times the joint was wrapped. Because of this, we remember the offsets for continuous
       // joints, and we un-do them when the plan comes from the planner
-      
+
       const robot_model::JointModel* jm = jstates[i]->getJointModel();
       if (jm->getType() == robot_model::JointModel::REVOLUTE)
       {
@@ -109,12 +109,12 @@ public:
           double after = jstates[i]->getVariableValues()[0];
           if (fabs(initial - after) > std::numeric_limits<double>::epsilon())
             change_req = true;
-        } 
+        }
       }
       else
         // Normalize yaw; no offset needs to be remembered
         if (jm->getType() == robot_model::JointModel::PLANAR)
-        {   
+        {
           double initial = jstates[i]->getVariableValues()[2];
           if (static_cast<const robot_model::PlanarJointModel*>(jm)->normalizeRotation(jstates[i]->getVariableValues()))
             change_req = true;
@@ -127,13 +127,13 @@ public:
               change_req = true;
           }
     }
-    
+
     // pointer to a prefix state we could possibly add, if we detect we have to make changes
     robot_state::RobotStatePtr prefix_state;
     for (std::size_t i = 0 ; i < jstates.size() ; ++i)
-    {   
+    {
       if (!jstates[i]->satisfiesBounds())
-      {    
+      {
         if (jstates[i]->satisfiesBounds(bounds_dist_))
         {
           if (!prefix_state)
@@ -172,21 +172,20 @@ public:
       solved = planner(planning_scene, req, res);
 
     // re-add the prefix state, if it was constructed
-    if (prefix_state && res.trajectory_)
-    {    
-      if (!res.trajectory_->empty())
-        // heuristically decide a duration offset for the trajectory (induced by the additional point added as a prefix to the computed trajectory)
-        res.trajectory_->setWayPointDurationFromPrevious(0, std::min(max_dt_offset_, res.trajectory_->getAverageSegmentDuration()));
+    if (prefix_state && res.trajectory_ && !res.trajectory_->empty())
+    {
+      // heuristically decide a duration offset for the trajectory (induced by the additional point added as a prefix to the computed trajectory)
+      res.trajectory_->setWayPointDurationFromPrevious(0, std::min(max_dt_offset_, res.trajectory_->getAverageSegmentDuration()));
       res.trajectory_->addPrefixWayPoint(prefix_state, 0.0);
       added_path_index.push_back(0);
     }
 
     return solved;
   }
-  
+
 private:
-  
-  ros::NodeHandle nh_;    
+
+  ros::NodeHandle nh_;
   double bounds_dist_;
   double max_dt_offset_;
 };

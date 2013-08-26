@@ -1,31 +1,36 @@
-/*
- * Copyright (c) 2008, Willow Garage, Inc.
- * All rights reserved.
+/*********************************************************************
+ * Software License Agreement (BSD License)
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
+ *  Copyright (c) 2008, Willow Garage, Inc.
+ *  All rights reserved.
  *
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *     * Redistributions in binary form must reproduce the above copyright
- *       notice, this list of conditions and the following disclaimer in the
- *       documentation and/or other materials provided with the distribution.
- *     * Neither the name of the Willow Garage, Inc. nor the names of its
- *       contributors may be used to endorse or promote products derived from
- *       this software without specific prior written permission.
+ *  Redistribution and use in source and binary forms, with or without
+ *  modification, are permitted provided that the following conditions
+ *  are met:
  *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- */
+ *   * Redistributions of source code must retain the above copyright
+ *     notice, this list of conditions and the following disclaimer.
+ *   * Redistributions in binary form must reproduce the above
+ *     copyright notice, this list of conditions and the following
+ *     disclaimer in the documentation and/or other materials provided
+ *     with the distribution.
+ *   * Neither the name of Willow Garage nor the names of its
+ *     contributors may be used to endorse or promote products derived
+ *     from this software without specific prior written permission.
+ *
+ *  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ *  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ *  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ *  FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+ *  COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+ *  INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+ *  BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ *  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ *  CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ *  LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+ *  ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ *  POSSIBILITY OF SUCH DAMAGE.
+ *********************************************************************/
 
 /* Author: Ioan Sucan */
 
@@ -62,7 +67,7 @@ RobotStateDisplay::RobotStateDisplay() :
     new rviz::StringProperty( "Robot Description", "robot_description", "The name of the ROS parameter where the URDF for the robot is loaded",
                               this,
                               SLOT( changedRobotDescription() ), this );
-  
+
   robot_state_topic_property_ =
     new rviz::RosTopicProperty( "Robot State Topic", "display_robot_state",
                                 ros::message_traits::datatype<moveit_msgs::DisplayRobotState>(),
@@ -76,7 +81,7 @@ RobotStateDisplay::RobotStateDisplay() :
                               this,
                               SLOT( changedRootLinkName() ), this );
   root_link_name_property_->setReadOnly(true);
-  
+
   robot_alpha_property_ =
     new rviz::FloatProperty( "Robot Alpha", 1.0f, "Specifies the alpha for the robot links",
                              this,
@@ -88,14 +93,14 @@ RobotStateDisplay::RobotStateDisplay() :
                                                            this,
                                                            SLOT( changedAttachedBodyColor() ), this );
 
-  enable_link_highlight_ = new rviz::BoolProperty("Show Highlights", true, "Specifies whether link highlighting is enabled", 
+  enable_link_highlight_ = new rviz::BoolProperty("Show Highlights", true, "Specifies whether link highlighting is enabled",
                                                   this, SLOT( changedEnableLinkHighlight() ), this);
-  enable_visual_visible_ = new rviz::BoolProperty("Visual Enabled", true, "Whether to display the visual representation of the robot.", 
+  enable_visual_visible_ = new rviz::BoolProperty("Visual Enabled", true, "Whether to display the visual representation of the robot.",
                                                   this, SLOT( changedEnableVisualVisible() ), this);
-  enable_collision_visible_ = new rviz::BoolProperty("Collision Enabled", false, "Whether to display the collision representation of the robot.", 
+  enable_collision_visible_ = new rviz::BoolProperty("Collision Enabled", false, "Whether to display the collision representation of the robot.",
                                                   this, SLOT( changedEnableCollisionVisible() ), this);
-  
-  show_all_links_ = new rviz::BoolProperty("Show All Links", true, "Toggle all links visibility on or off.", 
+
+  show_all_links_ = new rviz::BoolProperty("Show All Links", true, "Toggle all links visibility on or off.",
                                            this, SLOT( changedAllLinks() ), this);
 }
 
@@ -103,11 +108,11 @@ RobotStateDisplay::RobotStateDisplay() :
 // Deconstructor
 // ******************************************************************************************
 RobotStateDisplay::~RobotStateDisplay()
-{ 
+{
 }
 
 void RobotStateDisplay::onInitialize()
-{  
+{
   Display::onInitialize();
   robot_.reset(new RobotStateVisualization(scene_node_, context_, "Robot State", this));
   changedEnableVisualVisible();
@@ -116,13 +121,13 @@ void RobotStateDisplay::onInitialize()
 }
 
 void RobotStateDisplay::reset()
-{ 
+{
   robot_->clear();
   rdf_loader_.reset();
 
-  loadRobotModel("");
+  loadRobotModel();
   Display::reset();
-  
+
   changedEnableVisualVisible();
   changedEnableCollisionVisible();
   robot_->setVisible(true);
@@ -285,7 +290,7 @@ void RobotStateDisplay::changedRobotSceneAlpha()
 {
   if (robot_)
   {
-    robot_->setAlpha(robot_alpha_property_->getFloat());  
+    robot_->setAlpha(robot_alpha_property_->getFloat());
     QColor color = attached_body_color_property_->getColor();
     std_msgs::ColorRGBA color_msg;
     color_msg.r = color.redF();
@@ -302,7 +307,7 @@ void RobotStateDisplay::changedRobotStateTopic()
   robot_state_subscriber_.shutdown();
   robot_state_subscriber_ = root_nh_.subscribe(robot_state_topic_property_->getStdString(), 10, &RobotStateDisplay::newRobotStateCallback, this);
   robot_->clear();
-  loadRobotModel("");
+  loadRobotModel();
 }
 
 void RobotStateDisplay::newRobotStateCallback(const moveit_msgs::DisplayRobotStateConstPtr &state_msg)
@@ -310,7 +315,7 @@ void RobotStateDisplay::newRobotStateCallback(const moveit_msgs::DisplayRobotSta
   if (!kmodel_)
     return;
   if (!kstate_)
-    kstate_.reset(new robot_state::RobotState(kmodel_)); 
+    kstate_.reset(new robot_state::RobotState(kmodel_));
   // possibly use TF to construct a robot_state::Transforms object to pass in to the conversion functio?
   robot_state::robotStateMsgToRobotState(state_msg->state, *kstate_);
   setRobotHighlights(state_msg->highlight_links);
@@ -330,7 +335,7 @@ void RobotStateDisplay::unsetLinkColor(const std::string& link_name)
 void RobotStateDisplay::setLinkColor(rviz::Robot* robot,  const std::string& link_name, const QColor &color )
 {
   rviz::RobotLink *link = robot->getLink(link_name);
-  
+
   // Check if link exists
   if (link)
     link->setColor( color.redF(), color.greenF(), color.blueF() );
@@ -341,25 +346,22 @@ void RobotStateDisplay::unsetLinkColor(rviz::Robot* robot, const std::string& li
   rviz::RobotLink *link = robot->getLink(link_name);
 
   // Check if link exists
-  if (link) 
+  if (link)
     link->unsetColor();
 }
 
 // ******************************************************************************************
 // Load
 // ******************************************************************************************
-void RobotStateDisplay::loadRobotModel(const std::string &root_link)
+void RobotStateDisplay::loadRobotModel()
 {
   if (!rdf_loader_)
     rdf_loader_.reset(new rdf_loader::RDFLoader(robot_description_property_->getStdString()));
-  
+
   if (rdf_loader_->getURDF())
   {
     const boost::shared_ptr<srdf::Model> &srdf = rdf_loader_->getSRDF() ? rdf_loader_->getSRDF() : boost::shared_ptr<srdf::Model>(new srdf::Model());
-    if (root_link.empty())
-      kmodel_.reset(new robot_model::RobotModel(rdf_loader_->getURDF(), srdf));
-    else
-      kmodel_.reset(new robot_model::RobotModel(rdf_loader_->getURDF(), srdf, root_link));
+    kmodel_.reset(new robot_model::RobotModel(rdf_loader_->getURDF(), srdf));
     robot_->load(*kmodel_->getURDF());
     kstate_.reset(new robot_state::RobotState(kmodel_));
     kstate_->setToDefaultValues();
@@ -378,7 +380,7 @@ void RobotStateDisplay::loadRobotModel(const std::string &root_link)
 void RobotStateDisplay::onEnable()
 {
   Display::onEnable();
-  loadRobotModel("");
+  loadRobotModel();
   if (robot_)
   {
     changedEnableVisualVisible();
@@ -412,7 +414,7 @@ void RobotStateDisplay::update(float wall_dt, float ros_dt)
 // Calculate Offset Position
 // ******************************************************************************************
 void RobotStateDisplay::calculateOffsetPosition()
-{  
+{
   if (!getRobotModel())
     return;
 
@@ -444,8 +446,8 @@ void RobotStateDisplay::calculateOffsetPosition()
 
 void RobotStateDisplay::fixedFrameChanged()
 {
-  Display::fixedFrameChanged(); 
-  calculateOffsetPosition();  
+  Display::fixedFrameChanged();
+  calculateOffsetPosition();
 }
 
 

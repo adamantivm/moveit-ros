@@ -1,33 +1,38 @@
-/*
- * Copyright (c) 2013, Willow Garage, Inc.
- * All rights reserved.
+/*********************************************************************
+ * Software License Agreement (BSD License)
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
+ *  Copyright (c) 2013, Willow Garage, Inc.
+ *  All rights reserved.
  *
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *     * Redistributions in binary form must reproduce the above copyright
- *       notice, this list of conditions and the following disclaimer in the
- *       documentation and/or other materials provided with the distribution.
- *     * Neither the name of the Willow Garage, Inc. nor the names of its
- *       contributors may be used to endorse or promote products derived from
- *       this software without specific prior written permission.
+ *  Redistribution and use in source and binary forms, with or without
+ *  modification, are permitted provided that the following conditions
+ *  are met:
  *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
+ *   * Redistributions of source code must retain the above copyright
+ *     notice, this list of conditions and the following disclaimer.
+ *   * Redistributions in binary form must reproduce the above
+ *     copyright notice, this list of conditions and the following
+ *     disclaimer in the documentation and/or other materials provided
+ *     with the distribution.
+ *   * Neither the name of Willow Garage nor the names of its
+ *     contributors may be used to endorse or promote products derived
+ *     from this software without specific prior written permission.
  *
- * Author: Mario Prats, Ioan Sucan
- */
+ *  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ *  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ *  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ *  FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+ *  COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+ *  INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+ *  BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ *  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ *  CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ *  LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+ *  ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ *  POSSIBILITY OF SUCH DAMAGE.
+ *********************************************************************/
+
+/* Author: Mario Prats, Ioan Sucan */
 
 #include <main_window.h>
 #include <ui_utils.h>
@@ -65,6 +70,12 @@ MainWindow::MainWindow(int argc, char **argv, QWidget *parent) :
   robot_loader_dialog_ = new QDialog(0,0);
   load_robot_ui_.setupUi(robot_loader_dialog_);
 
+  run_benchmark_dialog_ = new QDialog(0,0);
+  run_benchmark_ui_.setupUi(run_benchmark_dialog_);
+
+  bbox_dialog_ = new QDialog(0,0);
+  bbox_dialog_ui_.setupUi(bbox_dialog_);
+
   //Rviz render panel
   render_panel_ = new rviz::RenderPanel();
   ui_.render_widget->addWidget(render_panel_);
@@ -94,8 +105,15 @@ MainWindow::MainWindow(int argc, char **argv, QWidget *parent) :
 
   if ( scene_display_ )
   {
-    ROS_INFO("Inside scene_display_ if statement");
-    configure();
+    if (waitForPlanningSceneMonitor(scene_display_))
+    {
+      configure();
+    }
+    else
+    {
+      ROS_INFO("Couldn't find a valid robot description in the parameter server. Please load a robot on the GUI.");
+    }
+
     if (ui_.planning_group_combo->count() > 0)
     {
       planningGroupChanged(ui_.planning_group_combo->currentText());
@@ -137,8 +155,27 @@ MainWindow::MainWindow(int argc, char **argv, QWidget *parent) :
     connect(ui_.planning_scene_list, SIGNAL( itemDoubleClicked (QListWidgetItem *) ), this, SLOT( loadSceneButtonClicked(QListWidgetItem *) ));
     connect(ui_.robot_interaction_button, SIGNAL( clicked() ), this, SLOT( robotInteractionButtonClicked() ));
 
+    run_benchmark_ui_.benchmark_select_folder_button->setIcon(QIcon::fromTheme("document-open", QApplication::style()->standardIcon(QStyle::SP_DirOpenIcon)));
+    connect( run_benchmark_ui_.run_benchmark_button, SIGNAL( clicked( ) ), this, SLOT( runBenchmarkButtonClicked(  ) ));
+    connect( run_benchmark_ui_.save_config_button, SIGNAL( clicked( ) ), this, SLOT( saveBenchmarkConfigButtonClicked( ) ));
+    connect( run_benchmark_ui_.cancel_button, SIGNAL( clicked( ) ), this, SLOT( cancelBenchmarkButtonClicked( ) ));
+    connect( run_benchmark_ui_.benchmark_select_folder_button, SIGNAL( clicked( ) ), this, SLOT( benchmarkFolderButtonClicked( ) ));
+    connect(run_benchmark_ui_.benchmark_include_planners_checkbox, SIGNAL(clicked(bool)), run_benchmark_ui_.planning_interfaces_text,  SLOT(setEnabled(bool)));
+    connect(run_benchmark_ui_.benchmark_include_planners_checkbox, SIGNAL(clicked(bool)), run_benchmark_ui_.planning_interfaces_label,  SLOT(setEnabled(bool)));
+    connect(run_benchmark_ui_.benchmark_include_planners_checkbox, SIGNAL(clicked(bool)), run_benchmark_ui_.planning_algorithms_text,  SLOT(setEnabled(bool)));
+    connect(run_benchmark_ui_.benchmark_include_planners_checkbox, SIGNAL(clicked(bool)), run_benchmark_ui_.planning_algorithms_label,  SLOT(setEnabled(bool)));
+
     //Goal poses
-    connect( ui_.goal_poses_add_button, SIGNAL( clicked() ), this, SLOT( createGoalPoseButtonClicked() ));
+    QMenu *add_button_menu = new QMenu(ui_.goal_poses_add_button);
+    QAction *add_single_goal_action = new QAction("Single goal", add_button_menu);
+    QAction *bbox_goals_action = new QAction("Goals in a bounding box", add_button_menu);
+    add_button_menu->addAction(add_single_goal_action);
+    add_button_menu->addAction(bbox_goals_action);
+    ui_.goal_poses_add_button->setMenu(add_button_menu);
+    connect( add_single_goal_action, SIGNAL( triggered() ), this, SLOT( createGoalPoseButtonClicked() ));
+    connect( bbox_goals_action, SIGNAL( triggered() ), this, SLOT( showBBoxGoalsDialog() ));
+    connect( bbox_dialog_ui_.ok_button, SIGNAL(clicked()), this, SLOT(createBBoxGoalsButtonClicked()));
+    connect( bbox_dialog_ui_.cancel_button, SIGNAL(clicked()), bbox_dialog_, SLOT(hide()));
     connect( ui_.goal_poses_remove_button, SIGNAL( clicked() ), this, SLOT( deleteGoalsOnDBButtonClicked() ));
     connect( ui_.load_poses_filter_text, SIGNAL( returnPressed() ), this, SLOT( loadGoalsFromDBButtonClicked() ));
     connect( ui_.goal_poses_open_button, SIGNAL( clicked() ), this, SLOT( loadGoalsFromDBButtonClicked() ));
@@ -165,7 +202,7 @@ MainWindow::MainWindow(int argc, char **argv, QWidget *parent) :
     connect( ui_.start_states_save_button, SIGNAL( clicked() ), this, SLOT( saveStatesOnDBButtonClicked() ));
     connect( ui_.start_states_list, SIGNAL( itemDoubleClicked(QListWidgetItem*) ), this, SLOT( startStateItemDoubleClicked(QListWidgetItem*) ));
 
-    QShortcut *copy_goals_shortcut = new QShortcut(QKeySequence(Qt::CTRL + Qt::Key_C), ui_.goal_poses_list);
+    QShortcut *copy_goals_shortcut = new QShortcut(QKeySequence(Qt::CTRL + Qt::Key_D), ui_.goal_poses_list);
     connect(copy_goals_shortcut, SIGNAL( activated() ), this, SLOT( copySelectedGoalPoses() ) );
 
     //Trajectories
@@ -191,6 +228,20 @@ MainWindow::MainWindow(int argc, char **argv, QWidget *parent) :
 
 MainWindow::~MainWindow()
 {
+}
+
+bool MainWindow::waitForPlanningSceneMonitor(moveit_rviz_plugin::PlanningSceneDisplay *scene_display)
+{
+  //Wait until the planning scene monitor is up
+  ros::Time tstart = ros::Time::now();
+  static const double psm_waiting_timeout = 10.0;
+  while (! scene_display->getPlanningSceneMonitor() && (ros::Time::now() - tstart) < ros::Duration(psm_waiting_timeout))
+  {
+    ROS_INFO_ONCE("Waiting for the planning scene monitor...");
+    scene_display->update(0.1, 0.1);
+  }
+
+  return scene_display->getPlanningSceneMonitor();
 }
 
 void MainWindow::exitActionTriggered(bool)
@@ -296,28 +347,36 @@ void MainWindow::loadNewRobot(const std::string &urdf_path, const std::string &s
     old_scene_name = scene_display_->getPlanningSceneRO()->getName();
   scene_display_->reset();
 
-  if (configure())
+  if (waitForPlanningSceneMonitor(scene_display_))
   {
-    //Reload the scene geometry if one scene was already loaded
-    load_robot_ui_.status_label->setText(QString("Reloading scene... "));
-    load_robot_ui_.load_progress_bar->setValue(90);
-    QList<QListWidgetItem *> found_items = ui_.planning_scene_list->findItems(QString::fromStdString(old_scene_name), Qt::MatchExactly);
-    if (found_items.size() > 0)
+    if (configure())
     {
-      found_items[0]->setSelected(true);
-      loadSceneButtonClicked();
-    }
+      //Reload the scene geometry if one scene was already loaded
+      load_robot_ui_.status_label->setText(QString("Reloading scene... "));
+      load_robot_ui_.load_progress_bar->setValue(90);
+      QList<QListWidgetItem *> found_items = ui_.planning_scene_list->findItems(QString::fromStdString(old_scene_name), Qt::MatchExactly);
+      if (found_items.size() > 0)
+      {
+        found_items[0]->setSelected(true);
+        loadSceneButtonClicked();
+      }
 
-    //Reload the goals
-    load_robot_ui_.status_label->setText(QString("Reloading goals... "));
-    load_robot_ui_.load_progress_bar->setValue(95);
-    if (ui_.goal_poses_list->count() > 0)
-    {
-      loadGoalsFromDBButtonClicked();
+      //Reload the goals
+      load_robot_ui_.status_label->setText(QString("Reloading goals... "));
+      load_robot_ui_.load_progress_bar->setValue(95);
+      if (ui_.goal_poses_list->count() > 0)
+      {
+        loadGoalsFromDBButtonClicked();
+      }
+      load_robot_ui_.status_label->setText(QString(""));
+      load_robot_ui_.load_progress_bar->setValue(100);
     }
-    load_robot_ui_.status_label->setText(QString(""));
-    load_robot_ui_.load_progress_bar->setValue(100);
   }
+  else
+  {
+    ROS_INFO("Couldn't find a valid robot description in the parameter server. Please load a robot on the GUI.");
+  }
+
   robot_loader_dialog_->close();
   load_robot_ui_.load_progress_bar->setValue(0);
   QApplication::restoreOverrideCursor();
@@ -537,6 +596,9 @@ void MainWindow::dbConnectButtonClickedBackgroundJob()
 
     if (port > 0 && ! host_port[0].isEmpty())
     {
+      database_host_ = host_port[0].toStdString();
+      database_port_ = port;
+
       //Store into settings
       QVariant previous_database_names = settings_->value("database_name", QStringList());
       QStringList name_list = previous_database_names.toStringList();
@@ -553,14 +615,14 @@ void MainWindow::dbConnectButtonClickedBackgroundJob()
       JobProcessing::addMainLoopJob(boost::bind(&setButtonState, ui_.db_connect_button, true, "Connecting...", "QPushButton { color : yellow }"));
       try
       {
-        planning_scene_storage_.reset(new moveit_warehouse::PlanningSceneStorage(host_port[0].toStdString(),
-                                                                                 port, 5.0));
-        robot_state_storage_.reset(new moveit_warehouse::RobotStateStorage(host_port[0].toStdString(),
-                                                                           port, 5.0));
-        constraints_storage_.reset(new moveit_warehouse::ConstraintsStorage(host_port[0].toStdString(),
-                                                                            port, 5.0));
-        trajectory_constraints_storage_.reset(new moveit_warehouse::TrajectoryConstraintsStorage(host_port[0].toStdString(),
-                                                                            port, 5.0));
+        planning_scene_storage_.reset(new moveit_warehouse::PlanningSceneStorage(database_host_,
+                                                                                 database_port_, 5.0));
+        robot_state_storage_.reset(new moveit_warehouse::RobotStateStorage(database_host_,
+                                                                           database_port_, 5.0));
+        constraints_storage_.reset(new moveit_warehouse::ConstraintsStorage(database_host_,
+                                                                            database_port_, 5.0));
+        trajectory_constraints_storage_.reset(new moveit_warehouse::TrajectoryConstraintsStorage(database_host_,
+                                                                                                 database_port_, 5.0));
         JobProcessing::addMainLoopJob(boost::bind(&setButtonState, ui_.db_connect_button, true, "Getting data...", "QPushButton { color : yellow }"));
 
         //Get all the scenes

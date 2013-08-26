@@ -1,36 +1,36 @@
 /*********************************************************************
-* Software License Agreement (BSD License)
-*
-*  Copyright (c) 2011, Willow Garage, Inc.
-*  All rights reserved.
-*
-*  Redistribution and use in source and binary forms, with or without
-*  modification, are permitted provided that the following conditions
-*  are met:
-*
-*   * Redistributions of source code must retain the above copyright
-*     notice, this list of conditions and the following disclaimer.
-*   * Redistributions in binary form must reproduce the above
-*     copyright notice, this list of conditions and the following
-*     disclaimer in the documentation and/or other materials provided
-*     with the distribution.
-*   * Neither the name of the Willow Garage nor the names of its
-*     contributors may be used to endorse or promote products derived
-*     from this software without specific prior written permission.
-*
-*  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-*  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-*  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
-*  FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
-*  COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
-*  INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-*  BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-*  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-*  CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
-*  LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
-*  ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-*  POSSIBILITY OF SUCH DAMAGE.
-*********************************************************************/
+ * Software License Agreement (BSD License)
+ *
+ *  Copyright (c) 2011, Willow Garage, Inc.
+ *  All rights reserved.
+ *
+ *  Redistribution and use in source and binary forms, with or without
+ *  modification, are permitted provided that the following conditions
+ *  are met:
+ *
+ *   * Redistributions of source code must retain the above copyright
+ *     notice, this list of conditions and the following disclaimer.
+ *   * Redistributions in binary form must reproduce the above
+ *     copyright notice, this list of conditions and the following
+ *     disclaimer in the documentation and/or other materials provided
+ *     with the distribution.
+ *   * Neither the name of Willow Garage nor the names of its
+ *     contributors may be used to endorse or promote products derived
+ *     from this software without specific prior written permission.
+ *
+ *  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ *  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ *  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ *  FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+ *  COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+ *  INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+ *  BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ *  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ *  CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ *  LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+ *  ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ *  POSSIBILITY OF SUCH DAMAGE.
+ *********************************************************************/
 
 /* Author: Ioan Sucan */
 
@@ -55,24 +55,24 @@ typedef boost::function<void(const sensor_msgs::JointStateConstPtr &joint_state)
 class CurrentStateMonitor
 {
 public:
-  
+
   /** @brief Constructor
    *  @param kmodel The current kinematic model to build on
    *  @param tf A pointer to the tf transformer to use
    */
   CurrentStateMonitor(const robot_model::RobotModelConstPtr &kmodel, const boost::shared_ptr<tf::Transformer> &tf);
-  
+
   ~CurrentStateMonitor();
-  
+
   /** @brief Start monitoring joint states on a particular topic
    *  @param joint_states_topic The topic name for joint states (defaults to "joint_states")
    */
   void startStateMonitor(const std::string &joint_states_topic = "joint_states");
-  
+
   /** @brief Stop monitoring the "joint_states" topic
    */
   void stopStateMonitor();
-  
+
   /** @brief Check if the state monitor is started */
   bool isActive() const;
 
@@ -81,49 +81,55 @@ public:
   {
     return kmodel_;
   }
-  
+
   /** @brief Get the name of the topic being monitored. Returns an empty string if the monitor is inactive. */
   std::string getMonitoredTopic() const;
-  
+
   /** @brief Query whether we have joint state information for all DOFs in the kinematic model
    *  @return False if we have no joint state information for one or more of the joints
    */
   bool haveCompleteState() const;
-  
+
   /** @brief Query whether we have joint state information for all DOFs in the kinematic model
    *  @return False if we have no joint state information for one of the joints or if our state
    *  information is more than \e age old
    */
   bool haveCompleteState(const ros::Duration &age) const;
-  
+
   /** @brief Query whether we have joint state information for all DOFs in the kinematic model
    *  @param missing_joints Returns the list of joints that are missing
    *  @return False if we have no joint state information for one or more of the joints
    */
   bool haveCompleteState(std::vector<std::string> &missing_joints) const;
-  
+
   /** @brief Query whether we have joint state information for all DOFs in the kinematic model
    *  @param age The max allowed age of the joint state information
    *  @param missing_states Returns the list of joints that are missing
    *  @return False if we have no joint state information for one of the joints or if our state
    *  information is more than \e age old*/
   bool haveCompleteState(const ros::Duration &age, std::vector<std::string> &missing_states) const;
-  
+
   /** @brief Get the current state
    *  @return Returns the current state */
   robot_state::RobotStatePtr getCurrentState() const;
-  
+
   /** @brief Get the time stamp for the current state */
   ros::Time getCurrentStateTime() const;
 
   /** @brief Get the current state and its time stamp
    *  @return Returns a pair of the current state and its time stamp */
   std::pair<robot_state::RobotStatePtr, ros::Time> getCurrentStateAndTime() const;
-  
+
   /** @brief Get the current state values as a map from joint names to joint state values
    *  @return Returns the map from joint names to joint state values*/
   std::map<std::string, double> getCurrentStateValues() const;
-  
+
+  /** @brief Wait for at most \e wait_time seconds until the complete current state is known. Return true if the full state is known */
+  bool waitForCurrentState(double wait_time) const;
+
+  /** @brief Wait for at most \e wait_time seconds until the joint values from the group \e group are known. Return true if values for all joints in \e group are known */
+  bool waitForCurrentState(const std::string &group, double wait_time) const;
+
   /** @brief Get the time point when the monitor was started */
   const ros::Time& getMonitorStartTime() const
   {
@@ -135,7 +141,7 @@ public:
 
   /** @brief Clear the functions to be called when an update to the joint state is received */
   void clearUpdateCallbacks();
-  
+
   /** @brief When a joint value is received to be out of bounds, it is changed slightly to fit within bounds,
    *  if the difference is less than a specified value (labeled the "allowed bounds error").
    *  This value can be set using this function.
@@ -144,7 +150,7 @@ public:
   {
     error_ = (error > 0) ? error : -error;
   }
-  
+
   /** @brief When a joint value is received to be out of bounds, it is changed slightly to fit within bounds,
    *  if the difference is less than a specified value (labeled the "allowed bounds error").
    *  @return The stored value for the "allowed bounds error"
@@ -153,11 +159,11 @@ public:
   {
     return error_;
   }
-  
+
 private:
-  
+
   void jointStateCallback(const sensor_msgs::JointStateConstPtr &joint_state);
-  bool isPassiveDOF(const std::string &dof) const;  
+  bool isPassiveDOF(const std::string &dof) const;
 
   ros::NodeHandle                              nh_;
   boost::shared_ptr<tf::Transformer>           tf_;
@@ -170,7 +176,7 @@ private:
   double                                       error_;
   ros::Subscriber                              joint_state_subscriber_;
   ros::Time                                    current_state_time_;
-  
+
   mutable boost::mutex                         state_update_lock_;
   std::vector< JointStateUpdateCallback >      update_callbacks_;
 };

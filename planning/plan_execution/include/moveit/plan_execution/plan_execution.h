@@ -1,36 +1,36 @@
 /*********************************************************************
-* Software License Agreement (BSD License)
-*
-*  Copyright (c) 2012, Willow Garage, Inc.
-*  All rights reserved.
-*
-*  Redistribution and use in source and binary forms, with or without
-*  modification, are permitted provided that the following conditions
-*  are met:
-*
-*   * Redistributions of source code must retain the above copyright
-*     notice, this list of conditions and the following disclaimer.
-*   * Redistributions in binary form must reproduce the above
-*     copyright notice, this list of conditions and the following
-*     disclaimer in the documentation and/or other materials provided
-*     with the distribution.
-*   * Neither the name of the Willow Garage nor the names of its
-*     contributors may be used to endorse or promote products derived
-*     from this software without specific prior written permission.
-*
-*  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-*  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-*  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
-*  FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
-*  COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
-*  INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-*  BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-*  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-*  CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
-*  LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
-*  ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-*  POSSIBILITY OF SUCH DAMAGE.
-*********************************************************************/
+ * Software License Agreement (BSD License)
+ *
+ *  Copyright (c) 2012, Willow Garage, Inc.
+ *  All rights reserved.
+ *
+ *  Redistribution and use in source and binary forms, with or without
+ *  modification, are permitted provided that the following conditions
+ *  are met:
+ *
+ *   * Redistributions of source code must retain the above copyright
+ *     notice, this list of conditions and the following disclaimer.
+ *   * Redistributions in binary form must reproduce the above
+ *     copyright notice, this list of conditions and the following
+ *     disclaimer in the documentation and/or other materials provided
+ *     with the distribution.
+ *   * Neither the name of Willow Garage nor the names of its
+ *     contributors may be used to endorse or promote products derived
+ *     from this software without specific prior written permission.
+ *
+ *  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ *  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ *  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ *  FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+ *  COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+ *  INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+ *  BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ *  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ *  CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ *  LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+ *  ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ *  POSSIBILITY OF SUCH DAMAGE.
+ *********************************************************************/
 
 /* Author: Ioan Sucan */
 
@@ -52,7 +52,7 @@ namespace plan_execution
 class PlanExecution
 {
 public:
-  
+
   struct Options
   {
     Options() : replan_(false),
@@ -60,7 +60,7 @@ public:
                 replan_delay_(0.0)
     {
     }
-    
+
     /// Flag indicating whether replanning is allowed
     bool replan_;
 
@@ -75,8 +75,8 @@ public:
 
     /// Callback for repairing motion plans. This is optional. A new plan is re-computed if repairing routines are not specified.
     /// To aid in the repair process, the position that the controller had reached in the execution of the previous plan is also passed as argument.
-    /// The format is the same as what the trajectory_execution_manager::TrajectoryExecutionManager reports: a pair of two integers where the first 
-    /// one is the index of the last trajectory being executed (from the sequence of trajectories specified in the ExecutableMotionPlan) and the second 
+    /// The format is the same as what the trajectory_execution_manager::TrajectoryExecutionManager reports: a pair of two integers where the first
+    /// one is the index of the last trajectory being executed (from the sequence of trajectories specified in the ExecutableMotionPlan) and the second
     /// one is the index of the closest waypoint along that trajectory.
     boost::function<bool(ExecutableMotionPlan &plan_to_update,
                          const std::pair<int, int> &trajectory_index)> repair_plan_callback_;
@@ -85,8 +85,8 @@ public:
     boost::function<void()> before_execution_callback_;
     boost::function<void()> done_callback_;
   };
-  
-  PlanExecution(const planning_scene_monitor::PlanningSceneMonitorPtr &planning_scene_monitor, 
+
+  PlanExecution(const planning_scene_monitor::PlanningSceneMonitorPtr &planning_scene_monitor,
                 const trajectory_execution_manager::TrajectoryExecutionManagerPtr& trajectory_execution);
   ~PlanExecution();
 
@@ -94,7 +94,7 @@ public:
   {
     return planning_scene_monitor_;
   }
-  
+
   const trajectory_execution_manager::TrajectoryExecutionManagerPtr& getTrajectoryExecutionManager() const
   {
     return trajectory_execution_manager_;
@@ -107,7 +107,7 @@ public:
     else
       return 0.0;
   }
-  
+
   void setTrajectoryStateRecordingFrequency(double freq)
   {
     if (trajectory_monitor_)
@@ -118,7 +118,7 @@ public:
   {
     default_max_replan_attempts_ = attempts;
   }
-  
+
   unsigned int getMaxReplanAttempts() const
   {
     return default_max_replan_attempts_;
@@ -133,28 +133,28 @@ public:
 
 private:
 
-  void planAndExecuteHelper(ExecutableMotionPlan &plan, const Options &opt);  
+  void planAndExecuteHelper(ExecutableMotionPlan &plan, const Options &opt);
   moveit_msgs::MoveItErrorCodes executeAndMonitor(const ExecutableMotionPlan &plan);
   bool isRemainingPathValid(const ExecutableMotionPlan &plan);
   bool isRemainingPathValid(const ExecutableMotionPlan &plan, const std::pair<int, int> &path_segment);
-  
+
   void planningSceneUpdatedCallback(const planning_scene_monitor::PlanningSceneMonitor::SceneUpdateType update_type);
   void doneWithTrajectoryExecution(const moveit_controller_manager::ExecutionStatus &status);
   void successfulTrajectorySegmentExecution(const ExecutableMotionPlan *plan, std::size_t index);
-  
+
   ros::NodeHandle node_handle_;
   planning_scene_monitor::PlanningSceneMonitorPtr planning_scene_monitor_;
   trajectory_execution_manager::TrajectoryExecutionManagerPtr trajectory_execution_manager_;
   planning_scene_monitor::TrajectoryMonitorPtr trajectory_monitor_;
 
   unsigned int default_max_replan_attempts_;
-  
+
   bool preempt_requested_;
   bool new_scene_update_;
-  
+
   bool execution_complete_;
   bool path_became_invalid_;
-  
+
   class DynamicReconfigureImpl;
   DynamicReconfigureImpl *reconfigure_impl_;
 };

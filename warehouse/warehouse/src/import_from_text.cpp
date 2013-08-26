@@ -14,7 +14,7 @@
  *     copyright notice, this list of conditions and the following
  *     disclaimer in the documentation and/or other materials provided
  *     with the distribution.
- *   * Neither the name of the Willow Garage nor the names of its
+ *   * Neither the name of Willow Garage nor the names of its
  *     contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission.
  *
@@ -154,7 +154,7 @@ void parseGoal(std::istream &in, planning_scene_monitor::PlanningSceneMonitor *p
   int count;
   in >> count;
 
-  // Convert to getLine method from here-on, so eat the line break. 
+  // Convert to getLine method from here-on, so eat the line break.
   std::string end_link;
   std::getline(in, end_link);
 

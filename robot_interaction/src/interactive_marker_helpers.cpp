@@ -1,31 +1,38 @@
-/*
- * Copyright (c) 2012, Willow Garage, Inc.
- * All rights reserved.
+/*********************************************************************
+ * Software License Agreement (BSD License)
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
+ *  Copyright (c) 2012, Willow Garage, Inc.
+ *  All rights reserved.
  *
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *     * Redistributions in binary form must reproduce the above copyright
- *       notice, this list of conditions and the following disclaimer in the
- *       documentation and/or other materials provided with the distribution.
- *     * Neither the name of the Willow Garage, Inc. nor the names of its
- *       contributors may be used to endorse or promote products derived from
- *       this software without specific prior written permission.
+ *  Redistribution and use in source and binary forms, with or without
+ *  modification, are permitted provided that the following conditions
+ *  are met:
  *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- */
+ *   * Redistributions of source code must retain the above copyright
+ *     notice, this list of conditions and the following disclaimer.
+ *   * Redistributions in binary form must reproduce the above
+ *     copyright notice, this list of conditions and the following
+ *     disclaimer in the documentation and/or other materials provided
+ *     with the distribution.
+ *   * Neither the name of Willow Garage nor the names of its
+ *     contributors may be used to endorse or promote products derived
+ *     from this software without specific prior written permission.
+ *
+ *  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ *  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ *  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ *  FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+ *  COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+ *  INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+ *  BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ *  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ *  CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ *  LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+ *  ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ *  POSSIBILITY OF SUCH DAMAGE.
+ *********************************************************************/
+
+/* Author: Ioan Sucan, Acorn Pooley, Adam Leeper */
 
 #include <moveit/robot_interaction/interactive_marker_helpers.h>
 #include <tf/transform_datatypes.h>
@@ -69,7 +76,7 @@ void addTArrowMarker(visualization_msgs::InteractiveMarker &im)
   m.color.g = 1.0f;
   m.color.b = 0.0f;
   m.color.a = 1.0f;
-  
+
   visualization_msgs::Marker mc;
   mc.type = visualization_msgs::Marker::CYLINDER;
   mc.scale.x = 0.05 * im.scale;
@@ -114,14 +121,14 @@ void addErrorMarker(visualization_msgs::InteractiveMarker &im)
   err.id = 1;
   err.action = visualization_msgs::Marker::ADD;
   err.header = im.header;
-  err.pose = im.pose;  
+  err.pose = im.pose;
   err.pose.orientation.x = err.pose.orientation.y = 0.7071067811865476;
   err.pose.orientation.z = err.pose.orientation.w = 0.0;
   err.color.r = 1.0f;
   err.color.g = 0.0f;
   err.color.b = 0.0f;
   err.color.a = 1.0f;
-  
+
   visualization_msgs::InteractiveMarkerControl err_control;
   err_control.always_visible = false;
   err_control.markers.push_back(err);
@@ -220,11 +227,16 @@ void addPositionControl(visualization_msgs::InteractiveMarker& int_marker, bool 
   int_marker.controls.push_back(control);
 }
 
-void addViewPlaneControl(visualization_msgs::InteractiveMarker& int_marker, double radius, const std_msgs::ColorRGBA& color)
+void addViewPlaneControl(visualization_msgs::InteractiveMarker& int_marker, double radius, const std_msgs::ColorRGBA& color, bool position, bool orientation)
 {
   visualization_msgs::InteractiveMarkerControl control;
   control.orientation_mode = visualization_msgs::InteractiveMarkerControl::VIEW_FACING;
-  control.interaction_mode = visualization_msgs::InteractiveMarkerControl::MOVE_PLANE;
+  if (position && orientation)
+    control.interaction_mode = visualization_msgs::InteractiveMarkerControl::MOVE_ROTATE_3D;
+  else if (orientation)
+    control.interaction_mode = visualization_msgs::InteractiveMarkerControl::ROTATE_3D;
+  else
+    control.interaction_mode = visualization_msgs::InteractiveMarkerControl::MOVE_3D;
   control.independent_marker_orientation = true;
   control.name = "move";
 
@@ -253,7 +265,7 @@ visualization_msgs::InteractiveMarker makePlanarXYMarker(const std::string& name
 }
 
 visualization_msgs::InteractiveMarker make6DOFMarker(const std::string& name,
-                                                     const geometry_msgs::PoseStamped &stamped, 
+                                                     const geometry_msgs::PoseStamped &stamped,
                                                      double scale,
                                                      bool orientation_fixed)
 {
