@@ -334,12 +334,13 @@ public:
      */
     bp::dict current_state_dict;
     bp::list link_state_list;
-    std::vector<robot_state::LinkState*> linkStateVector = robot_state->getLinkStateVector();
-    for(int i=0; i < linkStateVector.size(); i++) {
-      Eigen::Affine3d link_pose = linkStateVector[i]->getGlobalLinkTransform();
+    // std::vector<robot_state::LinkState*> linkStateVector = robot_state->getLinkStateVector();
+    const std::vector<const robot_model::LinkModel*> linkModelVector = robot_state->getRobotModel()->getLinkModels();
+    for(int i=0; i < linkModelVector.size(); i++) {
+      Eigen::Affine3d link_pose = robot_state->getGlobalLinkTransform(linkModelVector[i]);
       bp::list link_state;
       // link_name:
-      link_state.append(linkStateVector[i]->getName());
+      link_state.append(linkModelVector[i]->getName());
       // translation coordinates:
       link_state.append(link_pose.translation().x());
       link_state.append(link_pose.translation().y());
@@ -372,7 +373,9 @@ public:
     std::vector<double> joint_values = py_bindings_tools::doubleFromList(py_joint_values);
 
     // Perform the update
-    robot_state->setStateValues(joint_names, joint_values);
+    for(int i=0; i < joint_names.size(); i++) {
+      robot_state->setJointPositions(joint_names[i], &joint_values[i]);
+    }
 
     if( updates_state) {
     // Set the start state to this now, for future plans
