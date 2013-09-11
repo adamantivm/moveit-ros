@@ -40,6 +40,7 @@
 #include <moveit/py_bindings_tools/serialize_msg.h>
 #include <moveit/robot_state/robot_state.h>
 #include <eigen_conversions/eigen_msg.h>
+#include <tf_conversions/tf_eigen.h>
 
 #include <boost/python.hpp>
 #include <boost/shared_ptr.hpp>
@@ -180,7 +181,7 @@ public:
     geometry_msgs::PoseStamped pose = getCurrentPose(end_effector_link);
     return convertPoseToList(pose.pose);
   }
-
+  
   bp::list getRandomPosePython(const std::string &end_effector_link = "")
   {
     geometry_msgs::PoseStamped pose = getRandomPose(end_effector_link);
@@ -210,12 +211,16 @@ public:
       std::vector<double> v = py_bindings_tools::doubleFromList(pose);
       if (v.size() == 6 || v.size() == 7)
       {
-        Eigen::Affine3d p = v.size() == 6 ?
-          Eigen::Affine3d(Eigen::AngleAxisd(v[3], Eigen::Vector3d::UnitX())
-                          * Eigen::AngleAxisd(v[4], Eigen::Vector3d::UnitY())
-                          * Eigen::AngleAxisd(v[5], Eigen::Vector3d::UnitZ())) :
-          Eigen::Affine3d(Eigen::Quaterniond(v[6], v[3], v[4], v[5]));
+        Eigen::Affine3d p;
         p.translation() = Eigen::Vector3d(v[0], v[1], v[2]);
+        if (v.size() == 6)
+        {
+          Eigen::Quaterniond q;
+          tf::quaternionTFToEigen(tf::createQuaternionFromRPY(v[3], v[4], v[5]), q);
+          p = Eigen::Affine3d(q);
+        }
+        else
+          p = Eigen::Affine3d(Eigen::Quaterniond(v[6], v[3], v[4], v[5]));
         geometry_msgs::Pose pm;
         tf::poseEigenToMsg(p, pm);
         msg.push_back(pm);
@@ -225,6 +230,13 @@ public:
     }
   }
 
+  void setStartStatePython(const std::string &msg_str)
+  {
+    moveit_msgs::RobotState msg;    
+    py_bindings_tools::deserializeMsg(msg_str, msg);
+    setStartState(msg);
+  }
+  
   bool setPoseTargetsPython(bp::list &poses, const std::string &end_effector_link = "")
   {
     std::vector<geometry_msgs::Pose> msg;
@@ -284,7 +296,7 @@ public:
     return execute(plan);
   }
   
-  std::string getPlanPythonDict()
+  std::string getPlanPython()
   {
     MoveGroup::Plan plan;
     MoveGroup::plan(plan);
@@ -459,6 +471,9 @@ static void wrap_move_group_interface()
   MoveGroupClass.def("set_goal_orientation_tolerance", &MoveGroupWrapper::setGoalOrientationTolerance);
   MoveGroupClass.def("set_goal_tolerance", &MoveGroupWrapper::setGoalTolerance);
 
+  MoveGroupClass.def("set_start_state_to_current_state", &MoveGroupWrapper::setStartStateToCurrentState);  
+  MoveGroupClass.def("set_start_state", &MoveGroupWrapper::setStartStatePython);  
+
   bool (MoveGroupWrapper::*setPathConstraints_1)(const std::string&) = &MoveGroupWrapper::setPathConstraints;
   MoveGroupClass.def("set_path_constraints", setPathConstraints_1);
 
@@ -469,7 +484,7 @@ static void wrap_move_group_interface()
   MoveGroupClass.def("set_planning_time", &MoveGroupWrapper::setPlanningTime);
   MoveGroupClass.def("get_planning_time", &MoveGroupWrapper::getPlanningTime);
   MoveGroupClass.def("set_planner_id", &MoveGroupWrapper::setPlannerId);
-  MoveGroupClass.def("compute_plan", &MoveGroupWrapper::getPlanPythonDict);
+  MoveGroupClass.def("compute_plan", &MoveGroupWrapper::getPlanPython);
   MoveGroupClass.def("compute_cartesian_path", &MoveGroupWrapper::computeCartesianPathPython);
   MoveGroupClass.def("set_support_surface_name", &MoveGroupWrapper::setSupportSurfaceName);
 

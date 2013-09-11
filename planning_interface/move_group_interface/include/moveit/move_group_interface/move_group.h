@@ -163,6 +163,9 @@ public:
   void setWorkspace(double minx, double miny, double minz, double maxx, double maxy, double maxz);
 
   /** \brief If a different start state should be considered instead of the current state of the robot, this function sets that state */
+  void setStartState(const moveit_msgs::RobotState &start_state);
+
+  /** \brief If a different start state should be considered instead of the current state of the robot, this function sets that state */
   void setStartState(const robot_state::RobotState &start_state);
 
   /** \brief Set the starting state for planning to be that reported by the robot's joint state publication */
@@ -186,13 +189,6 @@ public:
       Values from state for joints not in this MoveGroup's group are ignored. */
   bool setJointValueTarget(const robot_state::RobotState &robot_state);
 
-  /** \brief Set the joint state goal from corresponding joint values from the specified group.
-      joint_state_group must represent the same group as this MoveGroup. */
-  bool setJointValueTarget(const robot_state::JointStateGroup &joint_state_group);
-
-  /** \brief Set the joint state goal for a particular joint */
-  bool setJointValueTarget(const robot_state::JointState &joint_state);
-
   /** \brief Set the joint state goal for a particular joint */
   bool setJointValueTarget(const std::string &joint_name, const std::vector<double> &values);
 
@@ -210,7 +206,7 @@ public:
   bool setNamedTarget(const std::string &name);
 
   /// Get the currently set joint state goal
-  const robot_state::JointStateGroup& getJointValueTarget() const;
+  const robot_state::RobotState& getJointValueTarget() const;
 
   /**@}*/
 
